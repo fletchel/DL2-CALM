@@ -102,7 +102,6 @@ class AdditionalArguments:
     lora_target_modules: Optional[List[str]] = field(
         default=None, metadata={"help": ("Change target modules of lora")}
     )
-    
 
 def update_autoconfig(config, additional_args, **kwargs):
 

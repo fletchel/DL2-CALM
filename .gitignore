@@ -157,3 +157,7 @@ save
 *.jsonl
 *.csv
 *.sh
+
+*.out
+*.job
+!sm_test.job

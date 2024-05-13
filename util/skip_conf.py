@@ -11,7 +11,8 @@ def softmax_confidence(
 ):
     assert logits is not None
     probs = torch.softmax(logits, dim=-1)
-    top_2 = torch.topk(probs, dim=-1, k=2)[0]
+    top_2 = torch.topk(probs, dim=-1, k=2)
+    top_2 = top_2[0]
 
     return (top_2[..., 0] - top_2[..., 1]).squeeze()
 

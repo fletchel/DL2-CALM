@@ -55,6 +55,7 @@ num_heads)`.
 GreedySearchOutput = Union[GreedySearchEncoderDecoderOutput, GreedySearchDecoderOnlyOutput]
 
 
+
 class DeployT5Attention(T5Attention):
     def __init__(self, config: T5Config, has_relative_attention_bias=False):
         super().__init__(config, has_relative_attention_bias)
@@ -155,7 +156,7 @@ class DeployT5Attention(T5Attention):
                     hidden_states = past_key_value
             return hidden_states
         
-        # get key/value states
+        # get key/value
         if self.is_decoder and key_value_states is None and stack_hidden_states is not None:
             _hidden_states = torch.cat((stack_hidden_states,) + (hidden_states,), dim=1)
         else:
@@ -918,6 +919,8 @@ class DeployT5Stack(T5Stack):
                         lm_logits = lm_head(_hidden_states) if not self.config.tie_word_embeddings \
                             else lm_head(_hidden_states * (self.config.d_model ** -0.5))
                             
+                        #lm_logits[..., 0] = -1000 # exclude pad token
+
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
