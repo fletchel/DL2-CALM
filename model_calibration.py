@@ -1,15 +1,74 @@
+import numpy as np
 
 
-def CalibrateCALM(LLM_full, LLM_ada, sample, delta, eps, lambda_set):
-    '''
-    Implement the algorithm for calibrating the LLM model, following algorithm 1 of section E of the paper.
+def calculate_empirical_average(L_values):
+    return np.mean(L_values)
 
-    params:
-    LLM_full: the full LLM model
-    LLM_ada: the early exiting LLM model. The early exiting depends on the current lambda value from lambda_set
-    sample: the sample we use for calibration
-    delta: tolerance parameter, how similar we want the outputs of the full and early-exit models to be
-    eps: confidence rate. Since there is stochasticty from the sample, we can only guarantee that the outputs are similar with probability >= eps
-    '''
 
-    
+def hoeffding_p_value(empirical_avg, delta, n):
+    return np.exp(-2 * n * (max(0, delta - empirical_avg)) ** 2)
+
+
+def calibrate(L_trainer: Seq2SeqTrainer, thresholds: List[float], delta: float, epsilon: float, samples,
+              consistency_type='textual'):
+    """
+    Calibrate CALM for global consistency.
+
+    Parameters:
+    - L_early: Function to evaluate LLMearly(Pi, lambda_j)
+    - L_full: Function to evaluate LLMfull(Pi)
+    - thresholds: List of candidate thresholds in decreasing order
+    - delta: Tolerance level for global consistency
+    - epsilon: Tolerance for p-value under which we exit early
+    - n: Number of samples in the calibration set
+    - consistency_type: Type of consistency ('textual' or 'risk')
+
+    Returns:
+    - lambda_min: The selected threshold for early-exiting
+    """
+    lambda_min = 1  # Default to the most conservative threshold if none are valid
+
+    for lambda_j in thresholds:
+        L_values = []
+        for i in range(samples):
+            # Evaluate LLMearly and LLMfull
+            L_trainer.model.set_early_exit_threshold(lambda_j)
+            L_early_val = L_trainer(i, lambda_j)
+            L_trainer.model.set_early_exit_threshold(1)
+            L_full_val = L_trainer(i)
+
+            if consistency_type == 'textual':
+                L_val = L_early_val - L_full_val
+            else:  # risk consistency
+                L_val = max(0, L_early_val - L_full_val)
+
+            L_values.append(L_val)
+
+        empirical_avg = calculate_empirical_average(L_values)
+        p_j = hoeffding_p_value(empirical_avg, delta, n)
+
+        if p_j <= epsilon:
+            return lambda_j  # Return the first threshold that meets the criterion
+
+    return lambda_min
+
+
+# Example usage
+def simulate_LLMearly(index, lambda_j):
+    # Simulate early model output
+    return np.random.random()
+
+
+def simulate_LLMfull(index):
+    # Simulate full model output
+    return np.random.random()
+
+
+# Define thresholds and parameters
+thresholds = [0.9, 0.8, 0.7, 0.6, 0.5]
+delta = 0.1  # Example delta
+epsilon = 0.05  # Example epsilon
+n = 100  # Number of samples in the calibration set
+
+selected_lambda = calibrate(simulate_LLMearly, simulate_LLMfull, thresholds, delta, epsilon, n, 'textual')
+print(f"Selected threshold for early exiting: {selected_lambda}")

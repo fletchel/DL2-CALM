@@ -103,6 +103,24 @@ class AdditionalArguments:
         default=None, metadata={"help": ("Change target modules of lora")}
     )
 
+    calibrate_num_samples : Optional[int] = field(
+        default=100, metadata={"help": ("Number of samples for calibration")}
+    )
+    calibrate_thresholds : Optional[List[float]] = field(
+        default=[0.5, 0.6, 0.7, 0.8, 0.9], metadata={"help": ("Thresholds for calibration")}
+    )
+    calibrate_delta : Optional[float] = field(
+        default=0.1, metadata={"help": ("Delta for calibration")}
+    )
+    calibrate_epsilon : Optional[float] = field(
+        default=0.05, metadata={"help": ("Epsilon for calibration")}
+    )
+
+    consistency_type: Optional[str] = field(
+        default='textual', metadata={"help": ("Type of consistency ('textual' or 'risk')")}
+    )
+
+
 def update_autoconfig(config, additional_args, **kwargs):
 
     # assertion

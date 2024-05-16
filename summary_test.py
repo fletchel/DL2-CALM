@@ -16,6 +16,8 @@
 """
 Fine-tuning the library models for sequence to sequence.
 """
+import json
+from copy import deepcopy
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
 
 from dataclasses import dataclass, field
@@ -34,6 +36,7 @@ import evaluate
 import transformers
 from datasets import load_dataset
 from peft import LoraConfig, TaskType, get_peft_model, PeftModel
+from torch.utils.data import DataLoader
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
@@ -46,7 +49,7 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, is_offline_mode, send_example_telemetry
 from transformers.utils.versions import require_version
-
+from model_calibration import calibrate
 from sum_lib import (
     ModelArguments,
     DataTrainingArguments,
@@ -295,8 +298,13 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         if "test" not in raw_datasets:
             raise ValueError("--do_predict requires a test dataset")
         column_names = raw_datasets["test"].column_names
+    elif training_args.do_cali:
+        # Calibration uses the test dataset
+        if "validation" not in raw_datasets:
+            raise ValueError("--do_calibrate requires a validation dataset")
+        column_names = raw_datasets["test"].column_names
     else:
-        logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
+        logger.info("There is nothing to do. Please pass `do_train`, `do_eval`, 'do_cali' and/or `do_predict`.")
         return
 
     # Get the column names for input/target.
@@ -404,6 +412,21 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on prediction dataset",
             )
 
+    if training_args.do_cali:
+        max_target_length = data_args.val_max_target_length
+        cali_dataset = raw_datasets["test"]
+        if data_args.max_predict_samples is not None:
+            max_predict_samples = min(len(cali_dataset), data_args.max_predict_samples)
+            cali_dataset = cali_dataset.select(range(max_predict_samples))
+        with training_args.main_process_first(desc="calibration dataset map pre-processing"):
+            cali_dataset = cali_dataset.map(
+                preprocess_function,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on calibration dataset",
+            )
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
     data_collator = DataCollatorForSeq2Seq(
@@ -535,6 +558,26 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
                 with open(output_prediction_file, "w") as writer:
                     writer.write("\n".join(predictions))
+
+    # Calibration
+    if training_args.do_cali:
+        num_samples = additional_args.calibrate_num_samples
+        thresholds = additional_args.calibrate_thresholds
+        delta = additional_args.calibrate_delta
+        epsilon = additional_args.calibrate_epsilon
+        consistency_type = additional_args.consistency_type
+
+        cali_subset = predict_dataset.select(range(min(num_samples, len(cali_dataset))))
+
+        cali_dataloader = DataLoader(cali_subset, batch_size=1)
+
+        lambda_min = calibrate(trainer,  thresholds, delta, epsilon, cali_dataloader, consistency_type)
+
+        output_calibration_file = os.path.join(additional_args.output_dir, "calibration.json")
+        with open(output_calibration_file, "w") as f:
+            json.dump({"lambda_min": lambda_min, "delta": delta, "epsilon": epsilon, "thresholds": thresholds, "num_samples": num_samples, "consistency_type": consistency_type}, f)
+
+
 
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "summarization"}
     if data_args.dataset_name is not None:

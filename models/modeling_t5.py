@@ -484,7 +484,10 @@ class EffT5Stack(T5Stack):
             assert config.shallow_exit_layer > 0 and config.shallow_exit_layer < len(self.block)
 
         self.block_op = [0] * config.num_layers  # to calculate the average number of forward block layers
-        
+
+    def update_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
+
     def forward(
         self,
         input_ids=None,
@@ -795,7 +798,10 @@ class EffT5ForConditionalGeneration(T5ForConditionalGeneration):
         else: self.layer_transformation = None
         
         self.deploy_time = None
-    
+
+
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,

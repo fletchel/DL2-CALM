@@ -222,6 +222,7 @@ class EffLongT5Stack(LongT5Stack):
         self.use_early_exit = False
         if self.is_decoder and config.exit_conf_type is not None:
             self.use_early_exit = True
+
             
         # Shallow-Deep framework
         self.use_shallow_deep = config.use_shallow_deep
@@ -552,7 +553,9 @@ class EffLongT5ForConditionalGeneration(LongT5ForConditionalGeneration):
         else: self.layer_transformation = None
         
         self.deploy_time = None
-    
+
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,

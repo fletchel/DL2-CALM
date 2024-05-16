@@ -782,6 +782,9 @@ class DeployLongT5ForConditionalGeneration(LongT5ForConditionalGeneration):
             'time_others': datetime.timedelta(),
         }
 
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
+
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
