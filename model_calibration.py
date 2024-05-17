@@ -1,5 +1,19 @@
 import numpy as np
 
+def textual_consistency(L_early: str, L_full: str):
+    '''
+    L_early: output of the early-exiting model
+    L_full: output of the full model
+
+    returns: Jaccard dissimilarity between the two outputs 
+    '''
+    L_early = L_early.lower().split()
+    L_full = L_full.lower().split()
+
+    intersection = len(set(L_early).intersection(set(L_full)))
+    union = len(set(L_early).union(set(L_full)))
+
+    return 1 - intersection / union 
 
 def calculate_empirical_average(L_values):
     return np.mean(L_values)
@@ -27,29 +41,31 @@ def calibrate(L_trainer: Seq2SeqTrainer, thresholds: List[float], delta: float, 
     - lambda_min: The selected threshold for early-exiting
     """
     lambda_min = 1  # Default to the most conservative threshold if none are valid
+    n = len(samples)
 
     for lambda_j in thresholds:
-        L_values = []
-        for i in range(samples):
+        for sample in samples:
+            L_values = np.array([])
             # Evaluate LLMearly and LLMfull
             L_trainer.model.set_early_exit_threshold(lambda_j)
-            L_early_val = L_trainer(i, lambda_j)
+            L_early_val = L_trainer(sample, lambda_j)
             L_trainer.model.set_early_exit_threshold(1)
-            L_full_val = L_trainer(i)
+            L_full_val = L_trainer(sample, 1) 
 
             if consistency_type == 'textual':
-                L_val = L_early_val - L_full_val
+                L_val = textual_consistency(L_early_val, L_full_val)
             else:  # risk consistency
-                L_val = max(0, L_early_val - L_full_val)
+                break
+                # TODO Implement risk consistency, unclear what risk function should be 
 
             L_values.append(L_val)
 
         empirical_avg = calculate_empirical_average(L_values)
         p_j = hoeffding_p_value(empirical_avg, delta, n)
 
-        if p_j <= epsilon:
+        if p_j > epsilon:
             return lambda_j  # Return the first threshold that meets the criterion
-
+        lambda_min = lambda_j
     return lambda_min
 
 
