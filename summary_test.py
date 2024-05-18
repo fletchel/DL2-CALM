@@ -562,10 +562,14 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Calibration
     if additional_args.do_cali:
-        thresholds = [1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] #TODO remove
+        thresholds = [1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] #TODO These thresholds are hardcoded. They should be passed as an argument.
 
         # Build a list of trainers where in each trainer the exit_conf_threshold is set to a different value from the thresholds list
         trainers = []
+        # for each threshold in the thresholds list, we create a new trainer with the threshold set to the current threshold value
+        # we make deep copies of the model, training_args, additional_args to avoid changing the original values
+        # we adjust the threshold in the model and training_args (only model should be required).
+        # We then create a list of trainers (which are wrappers around the model per threshold) which we will use to calibrate the method.
         for threshold in thresholds:
             # make deep copy of training_args
             additional_args_update = deepcopy(additional_args)
@@ -575,7 +579,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             training_args_update = adjust_training_args(training_args_update, additional_args_update)
             model_copy = deepcopy(model)
             model_copy.config.exit_conf_threshold = threshold
-            print(f"exit_conf_threshold: {model_copy.config.exit_conf_threshold}")
+            logger.info(f"exit_conf_threshold: {model_copy.config.exit_conf_threshold}")
             trainer = trainer_cls(
                 model=model_copy,
                 args=training_args_update,
@@ -606,27 +610,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
         logger.info("*** End of Calibrate ***")
 
-
-
-        # max_predict_samples = (
-        #     data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
-        # )
-        # metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
-        #
-        # trainer.log_metrics("predict", metrics)
-        # trainer.save_metrics("predict", metrics)
-        #
-        # if trainer.is_world_process_zero():
-        #     if training_args.predict_with_generate:
-        #         predictions = tokenizer.batch_decode(
-        #             predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
-        #         )
-        #         predictions = [pred.strip() for pred in predictions]
-        #         output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
-        #         with open(output_prediction_file, "w") as writer:
-        #             writer.write("\n".join(predictions))
-        #
-
+        # TODO take the lambda_mins and save them to a file.
 
         output_calibration_file = os.path.join(additional_args.output_dir, "calibration.json")
         with open(output_calibration_file, "w") as f:
