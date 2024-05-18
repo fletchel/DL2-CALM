@@ -9,7 +9,5 @@ rouge-score
 nltk
 py7zr
 sacrebleu >= 1.4.12
-transformers == 4.28.1
-protobuf <= 3.20.1
 matplotlib
 peft

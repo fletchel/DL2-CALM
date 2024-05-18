@@ -103,12 +103,16 @@ class AdditionalArguments:
         default=None, metadata={"help": ("Change target modules of lora")}
     )
 
+    do_cali: Optional[bool] = field(
+        default=False, metadata={"help": ("Calibrate the model for confidence measure.")}
+    )
+
     calibrate_num_samples : Optional[int] = field(
         default=100, metadata={"help": ("Number of samples for calibration")}
     )
-    calibrate_thresholds : Optional[List[float]] = field(
-        default=[0.5, 0.6, 0.7, 0.8, 0.9], metadata={"help": ("Thresholds for calibration")}
-    )
+    # calibrate_thresholds : Optional[List[float]] = field(
+    #     default=[0.5, 0.6, 0.7, 0.8, 0.9], metadata={"help": ("Thresholds for calibration")}
+    # )
     calibrate_delta : Optional[float] = field(
         default=0.1, metadata={"help": ("Delta for calibration")}
     )

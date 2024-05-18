@@ -485,7 +485,7 @@ class EffT5Stack(T5Stack):
 
         self.block_op = [0] * config.num_layers  # to calculate the average number of forward block layers
 
-    def update_config_exit_threshold(self, threshold):
+    def set_early_exit_threshold(self, threshold: float):
         self.config.exit_conf_threshold = threshold
 
     def forward(

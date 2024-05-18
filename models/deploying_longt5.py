@@ -414,6 +414,10 @@ class DeployLongT5Stack(LongT5Stack):
         
         return hidden_states, present_key_value_states
 
+
+    def update_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
+
     def forward(
         self,
         input_ids=None,

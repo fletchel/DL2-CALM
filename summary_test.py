@@ -286,6 +286,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
+    print(f'do_cali: {additional_args.do_cali}')
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -298,10 +299,10 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         if "test" not in raw_datasets:
             raise ValueError("--do_predict requires a test dataset")
         column_names = raw_datasets["test"].column_names
-    elif training_args.do_cali:
+    elif additional_args.do_cali:
         # Calibration uses the test dataset
-        if "validation" not in raw_datasets:
-            raise ValueError("--do_calibrate requires a validation dataset")
+        if "test" not in raw_datasets:
+            raise ValueError("--do_predict requires a test dataset")
         column_names = raw_datasets["test"].column_names
     else:
         logger.info("There is nothing to do. Please pass `do_train`, `do_eval`, 'do_cali' and/or `do_predict`.")
@@ -377,7 +378,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on train dataset",
             )
 
-    if training_args.do_eval:
+    if training_args.do_eval or additional_args.do_cali:
         max_target_length = data_args.val_max_target_length
         eval_dataset = raw_datasets["validation"]
 
@@ -396,7 +397,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on validation dataset",
             )
 
-    if training_args.do_predict:
+    if training_args.do_predict or additional_args.do_cali:
         max_target_length = data_args.val_max_target_length
         predict_dataset = raw_datasets["test"]
         if data_args.max_predict_samples is not None:
@@ -412,7 +413,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on prediction dataset",
             )
 
-    if training_args.do_cali:
+    if additional_args.do_cali:
         max_target_length = data_args.val_max_target_length
         cali_dataset = raw_datasets["test"]
         if data_args.max_predict_samples is not None:
@@ -495,7 +496,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        eval_dataset=eval_dataset if training_args.do_eval or additional_args.do_cali else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics if training_args.predict_with_generate else None
@@ -560,18 +561,61 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                     writer.write("\n".join(predictions))
 
     # Calibration
-    if training_args.do_cali:
+    if additional_args.do_cali:
+        thresholds = [1, 0.5, 0.6, 0.7, 0.8, 0.9] #TODO remove
+
+        # Build a list of trainers where in each trainer the exit_conf_threshold is set to a different value from the thresholds list
+        trainers = []
+        for threshold in thresholds:
+            additional_args.exit_conf_threshold = threshold
+            training_args = adjust_training_args(training_args, additional_args)
+
+            trainer = trainer_cls(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset if training_args.do_train else None,
+                eval_dataset=eval_dataset if training_args.do_eval or additional_args.do_cali else None,
+                tokenizer=tokenizer,
+                data_collator=data_collator,
+                compute_metrics=compute_metrics if training_args.predict_with_generate else None
+            )
+            trainers.append(trainer)
+
+
+
         num_samples = additional_args.calibrate_num_samples
-        thresholds = additional_args.calibrate_thresholds
         delta = additional_args.calibrate_delta
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
 
-        cali_subset = predict_dataset.select(range(min(num_samples, len(cali_dataset))))
 
-        cali_dataloader = DataLoader(cali_subset, batch_size=1)
+        logger.info("*** Calibrate ***")
 
-        lambda_min = calibrate(trainer,  thresholds, delta, epsilon, cali_dataloader, consistency_type)
+        lambda_min = calibrate(trainers,  thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type,  logger)
+
+        logger.info("*** End of Calibrate ***")
+
+
+
+        # max_predict_samples = (
+        #     data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
+        # )
+        # metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
+        #
+        # trainer.log_metrics("predict", metrics)
+        # trainer.save_metrics("predict", metrics)
+        #
+        # if trainer.is_world_process_zero():
+        #     if training_args.predict_with_generate:
+        #         predictions = tokenizer.batch_decode(
+        #             predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+        #         )
+        #         predictions = [pred.strip() for pred in predictions]
+        #         output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
+        #         with open(output_prediction_file, "w") as writer:
+        #             writer.write("\n".join(predictions))
+        #
+
 
         output_calibration_file = os.path.join(additional_args.output_dir, "calibration.json")
         with open(output_calibration_file, "w") as f:

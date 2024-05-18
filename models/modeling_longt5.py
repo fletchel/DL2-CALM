@@ -555,6 +555,7 @@ class EffLongT5ForConditionalGeneration(LongT5ForConditionalGeneration):
         self.deploy_time = None
 
     def set_config_exit_threshold(self, threshold):
+        logger.info(f"Set exit threshold to {threshold}")
         self.config.exit_conf_threshold = threshold
     def forward(
         self,
