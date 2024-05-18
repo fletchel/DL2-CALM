@@ -28,18 +28,19 @@ def textual_consistency(L_early: list, L_full: list):
 
     return 1 - intersection / union
 
-def calibrate(L_trainer, thresholds, delta, epsilon, cali_dataset, tokenizer,
-              consistency_type='textual', logger=None):
+def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type='textual', logger=None):
     logger.info(f"Calibrating")
     lambda_min = 1
-    L_trainer.model.set_config_exit_threshold(1)
-    L_full_val: PredictionOutput = L_trainer.predict(cali_dataset, metric_key_prefix="predict")
+
+    L_full_val: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
     decoder_output_full = tokenizer.batch_decode(L_full_val.predictions, skip_special_tokens=True)
 
-    for lambda_j in thresholds:
+    for i, L_trainer in enumerate(trainers):
         L_values = []
-        logger.info(f"Calibrating with threshold {lambda_j}")
-        L_trainer.model.set_config_exit_threshold(lambda_j)
+        logger.info(f"Calibrating with trainer {i}")
+        logger.info(f"Calibrating with threshold {thresholds[i]}")
+        logger.info(f"Calibrating with threshold (from modeL) {L_trainer.model.config.early_exit_threshold}")
+
         L_early_val: PredictionOutput = L_trainer.predict(cali_dataset, metric_key_prefix="predict")
         decoder_output_early = tokenizer.batch_decode(L_early_val.predictions, skip_special_tokens=True)
 
@@ -57,9 +58,7 @@ def calibrate(L_trainer, thresholds, delta, epsilon, cali_dataset, tokenizer,
         empirical_avg = calculate_empirical_average(L_values)
         p_j = hoeffding_p_value(empirical_avg, delta, len(cali_dataset))
 
-        # if p_j > epsilon:
-        #     return lambda_j
-        lambda_min = lambda_j
+        lambda_min = i
 
     return lambda_min
 

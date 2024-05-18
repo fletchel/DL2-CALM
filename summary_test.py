@@ -562,26 +562,37 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Calibration
     if additional_args.do_cali:
-        thresholds = [1, 0.5, 0.6, 0.7, 0.8, 0.9] #TODO remove
+        thresholds = [1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] #TODO remove
 
         # Build a list of trainers where in each trainer the exit_conf_threshold is set to a different value from the thresholds list
         trainers = []
         for threshold in thresholds:
-            additional_args.exit_conf_threshold = threshold
-            training_args = adjust_training_args(training_args, additional_args)
+            # make deep copy of training_args
+            additional_args_update = deepcopy(additional_args)
+            training_args_update = deepcopy(training_args)
 
+            additional_args_update.exit_conf_threshold = threshold
+            training_args_update = adjust_training_args(training_args_update, additional_args_update)
+            model_copy = deepcopy(model)
+            model_copy.config.exit_conf_threshold = threshold
+            print(f"exit_conf_threshold: {model_copy.config.exit_conf_threshold}")
             trainer = trainer_cls(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset if training_args.do_train else None,
-                eval_dataset=eval_dataset if training_args.do_eval or additional_args.do_cali else None,
+                model=model_copy,
+                args=training_args_update,
+                train_dataset=None,
+                eval_dataset=eval_dataset,
                 tokenizer=tokenizer,
                 data_collator=data_collator,
                 compute_metrics=compute_metrics if training_args.predict_with_generate else None
             )
             trainers.append(trainer)
 
-
+        # Check the exit_conf_threshold for each trainer
+        logger.info("*** Check exit_conf_threshold ***")
+        for trainer in trainers:
+        #     check the trainer's exit_conf_threshold and print to log
+            logger.info(f"Trainer's exit_conf_threshold: {trainer.model.config.exit_conf_threshold}")
+            logger.info(f"Model's config: {trainer.model.config}")
 
         num_samples = additional_args.calibrate_num_samples
         delta = additional_args.calibrate_delta

@@ -57,7 +57,6 @@ def get_skip_mask(
 ):
 
     assert config.exit_conf_type is not None or config.shallow2deep_conf_type is not None
-    logger.info(f"Running skip mask with exit_threshold: {config.exit_conf_threshold}")
     if config.exit_conf_type is not None:
         key = config.exit_conf_type
         if config.exit_position_temp is not None:
