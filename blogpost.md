@@ -42,7 +42,7 @@ Lastly, the original method employs a complex calibration procedure for finding 
 
 Our works consists of three main contributions to the CALM framework, each focusing on one of the weaknesses described in the previous section.
 
-The first of our contributions --- **top-k token propagation** --- addresses the problem of the computational overhead within **softmax response** confidence estimation method by selecting top-$K$ most probable tokens after the first layer and computing only the logits corresponding to these tokens in the following layers. With $K << V$, we believe that this change should lead to a noticeable decrease in the time spent on confidence estimation. 
+The first of our contributions --- **top-k token propagation** --- addresses the problem of the computational overhead within **softmax response** confidence estimation method by selecting $\text{top-}K$ most probable tokens after the first layer and computing only the logits corresponding to these tokens in the following layers. With $K << V$, we believe that this change should lead to a noticeable decrease in the time spent on confidence estimation. 
 
 **ADD A SNIPPET OF CODE COMPARED WITH THE NORMAL WORKFLOW**
 
