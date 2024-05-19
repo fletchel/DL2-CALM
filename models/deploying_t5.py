@@ -550,6 +550,8 @@ class DeployT5Stack(T5Stack):
         self.stack_conf, self.stack_pred = (), ()
         self.stack_conf_all, self.stack_ident_all = (), ()
 
+        self.top_propagation = config.top_propagation
+
         if self.is_decoder:
             self._reset_time_measure()
         else: self.deploy_time = None
@@ -818,6 +820,8 @@ class DeployT5Stack(T5Stack):
         self.shallow2deep = False  # False: skip, and True: forward
         self.lm_logits = None  # to prevent calculating logits twice
 
+        top_k_tokens = None
+
         for i, layer_module in enumerate(self.block):
                 
             # Static framework
@@ -916,9 +920,18 @@ class DeployT5Stack(T5Stack):
                         if self.config.use_synchronize: torch.cuda.synchronize()
                         start = datetime.datetime.now()
                         _hidden_states = self.dropout(self.final_layer_norm(hidden_states))
-                        lm_logits = lm_head(_hidden_states) if not self.config.tie_word_embeddings \
-                            else lm_head(_hidden_states * (self.config.d_model ** -0.5))
-                            
+                        temp_hidden_ = _hidden_states if not self.config.tie_word_embeddings \
+                                else _hidden_states * (self.config.d_model ** -0.5)
+                        if self.top_propagation is not None and top_k_tokens is not None:
+                            w = torch.take_along_dim(
+                                lm_head.weight.expand(temp_hidden_.shape[0], -1, -1),
+                                top_k_tokens.expand(1, -1, -1).permute((1, 2, 0)), dim=1
+                            )
+                            logits = torch.bmm(w, temp_hidden_.permute(0, 2, 1)).squeeze(2)
+                            lm_logits = logits.unsqueeze(1)
+                        else:
+                            lm_logits = lm_head(temp_hidden_)
+
                         #lm_logits[..., 0] = -1000 # exclude pad token
 
                         skip_mask = get_skip_mask(
@@ -928,6 +941,18 @@ class DeployT5Stack(T5Stack):
                             config=self.config,
                             pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
                         )
+
+                        if  self.top_propagation is not None and top_k_tokens is not None:
+                            lm_logits = torch.scatter(
+                                torch.full((temp_hidden_.shape[0], lm_head.weight.shape[0]),
+                                           fill_value=torch.finfo(lm_logits.dtype).min, device=lm_logits.device),
+                                dim=1, index=top_k_tokens, src=lm_logits.squeeze(1)
+                            )
+                            lm_logits = lm_logits.unsqueeze(1)
+
+                        if self.top_propagation is not None and top_k_tokens is None:
+                            top_k_tokens = torch.topk(lm_logits.squeeze(1), k=self.top_propagation, sorted=False).indices
+
                         if not skip_mask: self.block_op[i] += 1                    
                         if skip_mask: self.lm_logits = lm_logits
                         if self.config.use_synchronize: torch.cuda.synchronize()
