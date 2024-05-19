@@ -567,7 +567,12 @@ class DeployT5Stack(T5Stack):
                             'time_parallel_key_value_gen': [datetime.timedelta(), datetime.timedelta()],
                             'time_parallel_attn': [datetime.timedelta(), datetime.timedelta()],
                             'time_parallel_ffn': datetime.timedelta(),
-                            'time_others': datetime.timedelta(),}
+                            'time_others': datetime.timedelta()
+                            }
+        self.conf_time_per_layer = None
+        if self.use_early_exit:
+            min_exit_layer = self.exit_min_layer or 0
+            self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, self.config.num_layers)}
 
     def parallel_gen_token(
         self,
@@ -956,9 +961,12 @@ class DeployT5Stack(T5Stack):
                         if not skip_mask: self.block_op[i] += 1                    
                         if skip_mask: self.lm_logits = lm_logits
                         if self.config.use_synchronize: torch.cuda.synchronize()
-                        self.deploy_time['time_confidence'] += (datetime.datetime.now() - start)
-                    
-                # Normal framework
+                        conf_time = (datetime.datetime.now() - start)
+                        self.deploy_time['time_confidence'] += conf_time
+                        if self.conf_time_per_layer:
+                            self.conf_time_per_layer[i] += conf_time
+
+                        # Normal framework
                 elif (not self.use_shallow_deep and not self.use_early_exit):
                     self.block_op[i] += 1
                 
@@ -1028,6 +1036,7 @@ class DeployT5Stack(T5Stack):
                 ]
                 if v is not None
             )
+
         return BaseModelOutputWithPastAndCrossAttentions(
             last_hidden_state=hidden_states,
             past_key_values=present_key_value_states,
@@ -1075,6 +1084,8 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         # BMM
         self.bmm_update_iter = 0
         self.bmm_update_max_iter = 300
+
+        self.runs = 0
         
         self.deploy_time = {
             'time_encoder_forward': datetime.timedelta(),
@@ -1092,6 +1103,11 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             'time_estimate_conf': datetime.timedelta(),
             'time_others': datetime.timedelta(),
         }
+
+        self.conf_time_per_layer = None
+        if self.decoder.use_early_exit:
+            min_exit_layer = self.decoder.exit_min_layer or 0
+            self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, config.num_layers)}
 
     def forward(
         self,
@@ -1240,7 +1256,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             
             self.decoder.bmm_threshold = self.decoder.bmm_model.predict_proba(0.3, 0.9)
             self.bmm_update_iter += 1
-        
+
         # Decode
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
@@ -1263,6 +1279,10 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         for k, v in self.decoder.deploy_time.items():
             if type(v) != list: self.deploy_time[k] += v
             else: self.deploy_time[k] = [_d + _v for _d, _v in zip(self.deploy_time[k], v)]
+        if self.conf_time_per_layer:
+            for layer_id in self.conf_time_per_layer.keys():
+                self.conf_time_per_layer[layer_id] += self.decoder.conf_time_per_layer[layer_id]
+        #     print(layer_id, self.conf_time_per_layer[layer_id] / self.decoder.block_op[layer_id])
         self.decoder._reset_time_measure()
 
         return encoder_outputs, decoder_outputs
