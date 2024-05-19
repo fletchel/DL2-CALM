@@ -1,4 +1,4 @@
-Code mostly ripped from Fast Robust Early Exiting.
+Code based on Fast Robust Early Exiting.
 
 Create a calm env with requirements.txt
 
