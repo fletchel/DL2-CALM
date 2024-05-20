@@ -2,9 +2,6 @@ import numpy as np
 import torch
 
 from transformers import AutoConfig
-from transformers.utils import logging
-
-logger = logging.get_logger(__name__)
 
 
 def softmax_confidence(
@@ -37,7 +34,7 @@ def get_confidence_class(key):
 
     _conf_class_map = {
         'softmax': softmax_confidence,
-        'vanilla_classifier': meta_confidence,
+        'meta': meta_confidence,
     }
 
     if key in _conf_class_map:
@@ -55,8 +52,8 @@ def get_skip_mask(
     adapt_threshold: float = None,
     return_conf=False,
 ):
-
     assert config.exit_conf_type is not None or config.shallow2deep_conf_type is not None
+    print(f"Running skip mask with exit_threshold: {config.exit_conf_threshold}")
     if config.exit_conf_type is not None:
         key = config.exit_conf_type
         if config.exit_position_temp is not None:
@@ -77,15 +74,7 @@ def get_skip_mask(
         hidden_states=hidden_states, 
         classifier=classifier,
     )
-    
-    print("logits:")
-    print(logits)
-
     mask = torch.where(conf <= threshold, 0., 1.).bool()
-    print("mask:")
-    print(mask)
-    print("mask item:")
-    print(mask.item())
     
     if not return_conf:
         return mask.item()  # False (0) and True (1) denote keep and exit

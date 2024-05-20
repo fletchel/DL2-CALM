@@ -1034,7 +1034,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.decoder.lm_head = self.lm_head
-        if self.config.exit_conf_type == 'meta' or self.config.shallow2deep_conf_type == "meta":
+        if self.config.exit_conf_type == 'vanilla_classifier':
             self.cm_head = nn.Sequential(
                 nn.Linear(config.d_model, config.d_model, bias=True),
                 nn.ReLU(),
@@ -1067,6 +1067,9 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             'time_estimate_conf': datetime.timedelta(),
             'time_others': datetime.timedelta(),
         }
+
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
 
     def forward(
         self,

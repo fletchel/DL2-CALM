@@ -16,6 +16,8 @@
 """
 Fine-tuning the library models for sequence to sequence.
 """
+import json
+from copy import deepcopy
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
 
 from dataclasses import dataclass, field
@@ -34,6 +36,7 @@ import evaluate
 import transformers
 from datasets import load_dataset
 from peft import LoraConfig, TaskType, get_peft_model, PeftModel
+from torch.utils.data import DataLoader
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
@@ -46,7 +49,7 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, is_offline_mode, send_example_telemetry
 from transformers.utils.versions import require_version
-
+from model_calibration import calibrate
 from sum_lib import (
     ModelArguments,
     DataTrainingArguments,
@@ -283,6 +286,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
+    print(f'do_cali: {additional_args.do_cali}')
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -295,8 +299,13 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         if "test" not in raw_datasets:
             raise ValueError("--do_predict requires a test dataset")
         column_names = raw_datasets["test"].column_names
+    elif additional_args.do_cali:
+        # Calibration uses the test dataset
+        if "test" not in raw_datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        column_names = raw_datasets["test"].column_names
     else:
-        logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
+        logger.info("There is nothing to do. Please pass `do_train`, `do_eval`, 'do_cali' and/or `do_predict`.")
         return
 
     # Get the column names for input/target.
@@ -369,7 +378,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on train dataset",
             )
 
-    if training_args.do_eval:
+    if training_args.do_eval or additional_args.do_cali:
         max_target_length = data_args.val_max_target_length
         eval_dataset = raw_datasets["validation"]
 
@@ -388,7 +397,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on validation dataset",
             )
 
-    if training_args.do_predict:
+    if training_args.do_predict or additional_args.do_cali:
         max_target_length = data_args.val_max_target_length
         predict_dataset = raw_datasets["test"]
         if data_args.max_predict_samples is not None:
@@ -404,6 +413,21 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on prediction dataset",
             )
 
+    if additional_args.do_cali:
+        max_target_length = data_args.val_max_target_length
+        cali_dataset = raw_datasets["test"]
+        if data_args.max_predict_samples is not None:
+            max_predict_samples = min(len(cali_dataset), data_args.max_predict_samples)
+            cali_dataset = cali_dataset.select(range(max_predict_samples))
+        with training_args.main_process_first(desc="calibration dataset map pre-processing"):
+            cali_dataset = cali_dataset.map(
+                preprocess_function,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on calibration dataset",
+            )
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
     data_collator = DataCollatorForSeq2Seq(
@@ -472,7 +496,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        eval_dataset=eval_dataset if training_args.do_eval or additional_args.do_cali else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics if training_args.predict_with_generate else None
@@ -535,6 +559,64 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
                 with open(output_prediction_file, "w") as writer:
                     writer.write("\n".join(predictions))
+
+    # Calibration
+    if additional_args.do_cali:
+        thresholds = [1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] #TODO These thresholds are hardcoded. They should be passed as an argument.
+
+        # Build a list of trainers where in each trainer the exit_conf_threshold is set to a different value from the thresholds list
+        trainers = []
+        # for each threshold in the thresholds list, we create a new trainer with the threshold set to the current threshold value
+        # we make deep copies of the model, training_args, additional_args to avoid changing the original values
+        # we adjust the threshold in the model and training_args (only model should be required).
+        # We then create a list of trainers (which are wrappers around the model per threshold) which we will use to calibrate the method.
+        for threshold in thresholds:
+            # make deep copy of training_args
+            additional_args_update = deepcopy(additional_args)
+            training_args_update = deepcopy(training_args)
+
+            additional_args_update.exit_conf_threshold = threshold
+            training_args_update = adjust_training_args(training_args_update, additional_args_update)
+            model_copy = deepcopy(model)
+            model_copy.config.exit_conf_threshold = threshold
+            logger.info(f"exit_conf_threshold: {model_copy.config.exit_conf_threshold}")
+            trainer = trainer_cls(
+                model=model_copy,
+                args=training_args_update,
+                train_dataset=None,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                data_collator=data_collator,
+                compute_metrics=compute_metrics if training_args.predict_with_generate else None
+            )
+            trainers.append(trainer)
+
+        # Check the exit_conf_threshold for each trainer
+        logger.info("*** Check exit_conf_threshold ***")
+        for trainer in trainers:
+        #     check the trainer's exit_conf_threshold and print to log
+            logger.info(f"Trainer's exit_conf_threshold: {trainer.model.config.exit_conf_threshold}")
+            logger.info(f"Model's config: {trainer.model.config}")
+
+        num_samples = additional_args.calibrate_num_samples
+        delta = additional_args.calibrate_delta
+        epsilon = additional_args.calibrate_epsilon
+        consistency_type = additional_args.consistency_type
+
+
+        logger.info("*** Calibrate ***")
+
+        lambda_min = calibrate(trainers,  thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type,  logger)
+
+        logger.info("*** End of Calibrate ***")
+
+        # TODO take the lambda_mins and save them to a file.
+
+        output_calibration_file = os.path.join(additional_args.output_dir, "calibration.json")
+        with open(output_calibration_file, "w") as f:
+            json.dump({"lambda_min": lambda_min, "delta": delta, "epsilon": epsilon, "thresholds": thresholds, "num_samples": num_samples, "consistency_type": consistency_type}, f)
+
+
 
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "summarization"}
     if data_args.dataset_name is not None:
