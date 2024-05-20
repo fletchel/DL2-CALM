@@ -927,13 +927,17 @@ class DeployT5Stack(T5Stack):
                         _hidden_states = self.dropout(self.final_layer_norm(hidden_states))
                         temp_hidden_ = _hidden_states if not self.config.tie_word_embeddings \
                                 else _hidden_states * (self.config.d_model ** -0.5)
-                        if self.top_propagation is not None and top_k_tokens is not None:
-                            w = torch.take_along_dim(
-                                lm_head.weight.expand(temp_hidden_.shape[0], -1, -1),
-                                top_k_tokens.expand(1, -1, -1).permute((1, 2, 0)), dim=1
-                            )
-                            logits = torch.bmm(w, temp_hidden_.permute(0, 2, 1)).squeeze(2)
-                            lm_logits = logits.unsqueeze(1)
+                        if top_k_tokens is not None:
+                            # w = torch.take_along_dim(
+                            #     lm_head.weight.expand(temp_hidden_.shape[0], -1, -1),
+                            #     top_k_tokens.expand(1, -1, -1).permute((1, 2, 0)), dim=1
+                            # )
+                            # logits = torch.bmm(w, temp_hidden_.permute(0, 2, 1)).squeeze(2)
+                            # lm_logits = logits.unsqueeze(1)
+                            # w = lm_head.weight[top_k_tokens]
+                            # logits = temp_hidden_.squeeze(0) @ w.T
+                            # lm_logits = logits.unsqueeze(1)
+                            lm_logits = torch.nn.functional.linear(temp_hidden_, top_k_weight, None)
                         else:
                             lm_logits = lm_head(temp_hidden_)
 
@@ -947,16 +951,24 @@ class DeployT5Stack(T5Stack):
                             pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
                         )
 
-                        if  self.top_propagation is not None and top_k_tokens is not None:
+                        if skip_mask and top_k_tokens is not None:
                             lm_logits = torch.scatter(
                                 torch.full((temp_hidden_.shape[0], lm_head.weight.shape[0]),
                                            fill_value=torch.finfo(lm_logits.dtype).min, device=lm_logits.device),
-                                dim=1, index=top_k_tokens, src=lm_logits.squeeze(1)
+                                dim=1, index=top_k_tokens.unsqueeze(0), src=lm_logits.squeeze(1)
                             )
                             lm_logits = lm_logits.unsqueeze(1)
+                            # temp_logits = torch.full((lm_head.weight.shape[0],),
+                            #                        fill_value=torch.finfo(lm_logits.dtype).min,
+                            #                        device=lm_logits.device)
+                            # temp_logits[top_k_tokens] = lm_logits
+                            # lm_logits = temp_logits.view(1, 1, -1)
 
-                        if self.top_propagation is not None and top_k_tokens is None:
+                        if not skip_mask and self.top_propagation is not None and top_k_tokens is None:
                             top_k_tokens = torch.topk(lm_logits.squeeze(1), k=self.top_propagation, sorted=False).indices
+                            top_k_tokens = top_k_tokens.squeeze(0)
+                            #top_k_tokens = torch.arange(lm_logits.shape[-1], device=lm_logits.device)
+                            top_k_weight = lm_head.weight[top_k_tokens]
 
                         if not skip_mask: self.block_op[i] += 1                    
                         if skip_mask: self.lm_logits = lm_logits

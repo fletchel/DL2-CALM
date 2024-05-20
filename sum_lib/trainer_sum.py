@@ -150,9 +150,9 @@ class SumTrainer(Seq2SeqTrainer):
         if self.model.conf_time_per_layer is not None:
             conf_time_per_layer = {}
             for l, t in self.model.conf_time_per_layer.items():
-                if self.model.decoder.block_op[l] == 0:
+                if self.model.decoder.block_op[l - 1] == 0:
                     continue
-                conf_time_per_layer["conf_time_layer_{}".format(l)] = t.total_seconds() / self.model.decoder.block_op[l]
+                conf_time_per_layer["conf_time_layer_{}".format(l)] = t.total_seconds() / self.model.decoder.block_op[l - 1]
             output.metrics.update(conf_time_per_layer)
                 
         self.log(output.metrics)
