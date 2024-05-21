@@ -135,8 +135,8 @@ def compute_cm_head_loss(config, lm_head, cm_head, model_dim, all_hidden_states=
     train cm_head for "meta" confidence measure.
     "meta" confidence measure aims to output probability for the exit when the input is hidden_states.
     """
+
     scale_factor = model_dim ** -0.5 if config.tie_word_embeddings else 1
-    
     if config.shallow_exit_layer is not None:
         trained_layers = [config.shallow_exit_layer, len(all_hidden_states)]
         all_lm_logits = [lm_head(all_hidden_states[i-1] * scale_factor) for i in trained_layers]
@@ -146,14 +146,22 @@ def compute_cm_head_loss(config, lm_head, cm_head, model_dim, all_hidden_states=
     
     device = all_lm_argmax[-1].device
     meta_labels, meta_preds = torch.empty(0).to(device), torch.empty(0).to(device)
+
     for idx, h in enumerate(all_hidden_states[:-1]):
         labels_ = (all_lm_logits[idx].argmax(-1) == all_lm_argmax).view(-1)  # (bsz, len) -> (bsz * len)
         meta_labels = torch.cat([meta_labels, labels_], dim=0)  # (bsz * len)
-        meta_preds = torch.cat([meta_preds, cm_head(h.reshape(-1, h.size(-1)))], dim=0)  # (bsz * len, 2)
+
+        if config.exit_conf_type == 'transformer':
+
+          cur_preds = cm_head(h.transpose(0,1)).reshape(-1, 2)
+          meta_preds = torch.cat([meta_preds, cur_preds], dim=0)
+        else:
+          meta_preds = torch.cat([meta_preds, cm_head(h.reshape(-1, h.size(-1)))], dim=0)  # (bsz * len, 2)
 
     # balanced loss
     pos, neg = sum(meta_labels) / len(meta_labels), 1 - sum(meta_labels) / len(meta_labels)
     bal_prior = torch.log(torch.tensor([neg, pos])).view(1, -1).to(device)
     loss_fct = CrossEntropyLoss()
+
     loss = loss_fct(meta_preds + bal_prior, meta_labels.long())  # Logit Adjustment
     return loss

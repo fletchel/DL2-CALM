@@ -503,6 +503,16 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     )
 
     # Training
+
+    if model.config.train_meta_cm_head:
+
+      for n, p in model.named_parameters():
+
+        if 'cm_head' not in n:
+
+          p.requires_grad = False
+
+          
     if training_args.do_train:
         checkpoint = None
         if training_args.resume_from_checkpoint is not None:

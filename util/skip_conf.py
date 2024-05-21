@@ -38,6 +38,7 @@ def get_confidence_class(key):
     _conf_class_map = {
         'softmax': softmax_confidence,
         'vanilla_classifier': meta_confidence,
+        'transformer': meta_confidence
     }
 
     if key in _conf_class_map:
@@ -77,15 +78,9 @@ def get_skip_mask(
         hidden_states=hidden_states, 
         classifier=classifier,
     )
-    
-    print("logits:")
-    print(logits)
-
+  
     mask = torch.where(conf <= threshold, 0., 1.).bool()
-    print("mask:")
-    print(mask)
-    print("mask item:")
-    print(mask.item())
+
     
     if not return_conf:
         return mask.item()  # False (0) and True (1) denote keep and exit
