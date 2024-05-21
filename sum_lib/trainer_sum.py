@@ -49,10 +49,24 @@ from models.deploying_t5 import DeployT5ForConditionalGeneration
 from models.deploying_longt5 import DeployLongT5ForConditionalGeneration
 
 
-class SumTrainer(Trainer):
+class SumTrainer(Seq2SeqTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def _pad_across_processes(self, tensor, pad_index=-100):
+        """
+        Pad the tensor to the maximum length across processes. Returns the padded tensor and the length.
+        """
+        if not self.args.pad_to_multiple_of:
+            return tensor
+
+        max_length = self._pad_to_multiple_of
+        if max_length is not None and tensor.shape[-1] % max_length != 0:
+            length = tensor.shape[-1]
+            pad_length = (length // max_length + 1) * max_length - length
+            tensor = torch.nn.functional.pad(tensor, (0, pad_length), value=pad_index)
+        return tensor
+    
     def evaluate(
             self,
             eval_dataset: Optional[Dataset] = None,
