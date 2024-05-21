@@ -19,18 +19,24 @@ source activate calm
 # Run your code
 
 srun python -u run_summarization.py \
-    --model_name_or_path /save/t5-small-finetuned-cnn\
+    --model_name_or_path /save/cnndm_t5_small_run2 \
     --do_cali True \
     --dataset_name cnn_dailymail \
     --dataset_config_name "3.0.0" \
     --output_dir ./save/cali/cali_run1 \
     --per_device_eval_batch_size 1 \
     --deploy_scenario True \
-    --use_synchronize True \    
+    --use_synchronize True \
     --overwrite_output_dir \
     --predict_with_generate \
     --source_prefix "summarize: " \
     --max_eval_samples 1000 \
+    --use_early_exit True \
+    --exit_conf_type softmax \
+    --exit_min_layer 4 \
+    --calibrate_delta 10 \
+    --calibrate_epsilon 0.1 \
+    --consistency_type textual \
 
     # FREE
     # --use_shallow_deep True \
@@ -40,20 +46,16 @@ srun python -u run_summarization.py \
     # --use_adap_threshold True \ # to use adaptive threshold
 
     # CALM
-    --use_early_exit True \
-    --exit_conf_type softmax \
+    # --use_early_exit True \
+    # --exit_conf_type softmax \
     # --exit_conf_threshold 0.9 \
-    --exit_min_layer 4 \
-
+    # --exit_min_layer 4 \
 
     # CALM calibration
-    --calibrate_sample_size 1000 \
-    --conf_threshold_vals "1 .9 .8 .7 .6 .5 .4 .3 .2 .1" \
-    --calibrate_delta 10 \
-    --calibrate_epsilon 0.1 \
-    --consistency_type textual \ 
-
-
+    # --conf_threshold_vals "1 .9 .8 .7 .6 .5 .4 .3 .2 .1" \
+    # --calibrate_delta 10 \
+    # --calibrate_epsilon 0.1 \
+    # --consistency_type textual \ 
 
     # static-exiting
     # --static_exit_layer 6 \
