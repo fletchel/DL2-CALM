@@ -1,6 +1,7 @@
 import numpy as np
 import logging
 from transformers.trainer_utils import PredictionOutput
+
 def calculate_empirical_average(L_values):
     return np.mean(L_values)
 
@@ -29,27 +30,29 @@ def textual_consistency(L_early: list, L_full: list):
     return 1 - intersection / union
 
 def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type='textual', logger=None):
-    logger.info(f"Calibrating")
     lambda_min = 1
 
-    L_full_val: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
+    L_full_val = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
     decoder_output_full = tokenizer.batch_decode(L_full_val.predictions, skip_special_tokens=True)
+    logger.info(decoder_output_full[0])
 
     for i, L_trainer in enumerate(trainers):
         L_values = []
         logger.info(f"Calibrating with trainer {i}")
         logger.info(f"Calibrating with threshold {thresholds[i]}")
-        logger.info(f"Calibrating with threshold (from modeL) {L_trainer.model.config.early_exit_threshold}")
+        logger.info(f"Calibrating with threshold (from model) {L_trainer.model.config.early_exit_threshold}")
 
-        L_early_val: PredictionOutput = L_trainer.predict(cali_dataset, metric_key_prefix="predict")
+        L_early_val = L_trainer.predict(cali_dataset, metric_key_prefix="predict")
         decoder_output_early = tokenizer.batch_decode(L_early_val.predictions, skip_special_tokens=True)
 
         logger.info(f"Early (index 0): {decoder_output_early[0]}, Full: {decoder_output_full[0]}")
         logger.info(f"Early (index {len(cali_dataset)-1}): {decoder_output_early[len(cali_dataset)-1]}, Full: {decoder_output_full[len(cali_dataset)-1]}")
 
+        # TODO: the textual/risk stuff is all wrong atm
         if consistency_type == 'textual':
             L_val = textual_consistency(decoder_output_early, decoder_output_full)
             logger.info(f"Textual consistency: {L_val}")
+
         else:  # risk consistency
             L_val = max(0, L_early_val - L_full_val)
 

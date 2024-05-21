@@ -488,7 +488,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     training_args = adjust_training_args(training_args, additional_args)
 
     # Initialize our Trainer
-    trainer = trainer_cls(
+    trainer =   (
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -558,7 +558,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Calibration
     if additional_args.do_cali:
-        thresholds = [1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] #TODO These thresholds are hardcoded. They should be passed as an argument.
+        thresholds = additional_args.conf_threshold_vals
 
         # Build a list of trainers where in each trainer the exit_conf_threshold is set to a different value from the thresholds list
         trainers = []
@@ -587,14 +587,16 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             )
             trainers.append(trainer)
 
+        logger.info("Done creating trainers per threshold.")
+
         # Check the exit_conf_threshold for each trainer
-        logger.info("*** Check exit_conf_threshold ***")
+        logger.info("*** Check exit_conf_threshold per trainer:***")
         for trainer in trainers:
         #     check the trainer's exit_conf_threshold and print to log
             logger.info(f"Trainer's exit_conf_threshold: {trainer.model.config.exit_conf_threshold}")
             logger.info(f"Model's config: {trainer.model.config}")
 
-        num_samples = additional_args.calibrate_num_samples
+        num_samples = additional_args.calibrate_sample_size
         delta = additional_args.calibrate_delta
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
