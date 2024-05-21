@@ -31,9 +31,11 @@ def textual_consistency(L_early: list, L_full: list):
 
 def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type='textual', logger=None):
     lambda_min = 1
-
+    logger.info('Before full val:')
     L_full_val: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
+    logger.info('After full val and before detokenizer:')
     decoder_output_full = tokenizer.batch_decode(L_full_val.predictions, skip_special_tokens=True)
+    logger.info('After detokenizer:')
     logger.info(decoder_output_full[0])
 
     for i, L_trainer in enumerate(trainers):
