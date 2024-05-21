@@ -488,7 +488,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     training_args = adjust_training_args(training_args, additional_args)
 
     # Initialize our Trainer
-    trainer =   (
+    trainer = trainer_cls(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
