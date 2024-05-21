@@ -558,7 +558,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Calibration
     if additional_args.do_cali:
-        thresholds = additional_args.conf_threshold_vals
+        thresholds = [1 .75 .5 .25 .1]
 
         # Build a list of trainers where in each trainer the exit_conf_threshold is set to a different value from the thresholds list
         trainers = []
