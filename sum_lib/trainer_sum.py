@@ -54,13 +54,10 @@ class SumTrainer(Seq2SeqTrainer):
         super().__init__(*args, **kwargs)
 
     def _pad_across_processes(self, tensor, pad_index=-100):
-        """
-        Pad the tensor to the maximum length across processes. Returns the padded tensor and the length.
-        """
-        if not self.args.pad_to_multiple_of:
+        if not hasattr(self.args, 'pad_to_multiple_of') or not self.args.pad_to_multiple_of:
             return tensor
 
-        max_length = self._pad_to_multiple_of
+        max_length = self.args.pad_to_multiple_of
         if max_length is not None and tensor.shape[-1] % max_length != 0:
             length = tensor.shape[-1]
             pad_length = (length // max_length + 1) * max_length - length
