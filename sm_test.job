@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition=gpu_mig
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=9
 #SBATCH --gpus=1
@@ -18,9 +18,15 @@ module load Anaconda3/2022.05
 source activate calm
 # Run your code
 
+<<<<<<< Updated upstream
 srun python -u summary_test.py \
     --model_name_or_path ./save/cnndm_t5_small_run2 \
     --do_cali \
+=======
+srun python -u run_summarization.py \
+    --model_name_or_path /save/t5-small-finetuned-cnn\
+    --do_cali True \
+>>>>>>> Stashed changes
     --dataset_name cnn_dailymail \
     --dataset_config_name "3.0.0" \
     --output_dir ./save/cali/cali_run1 \
@@ -31,11 +37,14 @@ srun python -u summary_test.py \
     --predict_with_generate \
     --source_prefix "summarize: " \
     --max_eval_samples 1000 \
+<<<<<<< Updated upstream
     --max_predict_samples 10 \
     --exit_conf_threshold .7 \
     --use_early_exit True \
     --exit_conf_type softmax \
     --exit_min_layer 4
+=======
+>>>>>>> Stashed changes
 
     # FREE
     # --use_shallow_deep True \
@@ -45,17 +54,17 @@ srun python -u summary_test.py \
     # --use_adap_threshold True \ # to use adaptive threshold
 
     # CALM
-    # --use_early_exit True \
-    # --exit_conf_type softmax \
-    # --exit_conf_threshold 0.9 \
-    # --exit_min_layer 4 \
+    --use_early_exit True \
+    --exit_conf_type softmax \
+    --exit_conf_threshold 0.9 \
+    --exit_min_layer 4 \
 
 
     # CALM calibration
-    # --calibrate_sample_size 1000 \
-    # --calibrate_conf_threshold [0.5, 0.6, 0.7, 0.8, 0.9] \
-    # --calibrate_delta 10 \
-    # --calibrate_epsilon 0.1 \
+    --calibrate_sample_size 1000 \
+    # --calibrate_conf_threshold 0.9 \
+    --calibrate_delta 10 \
+    --calibrate_epsilon 0.1 \
 
 
 
