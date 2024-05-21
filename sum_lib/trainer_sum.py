@@ -27,7 +27,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import Seq2SeqTrainer
+from transformers import Seq2SeqTrainer, Trainer 
 from transformers.utils import is_torch_tpu_available
 from transformers.deepspeed import deepspeed_init, is_deepspeed_zero3_enabled
 from transformers.debug_utils import DebugOption
@@ -49,7 +49,7 @@ from models.deploying_t5 import DeployT5ForConditionalGeneration
 from models.deploying_longt5 import DeployLongT5ForConditionalGeneration
 
 
-class SumTrainer(Seq2SeqTrainer):
+class SumTrainer(Trainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
