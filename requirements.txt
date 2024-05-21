@@ -11,3 +11,4 @@ py7zr
 sacrebleu >= 1.4.12
 matplotlib
 peft
+numpy
