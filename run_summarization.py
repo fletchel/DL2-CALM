@@ -594,9 +594,8 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         for trainer in trainers:
         #     check the trainer's exit_conf_threshold and print to log
             logger.info(f"Trainer's exit_conf_threshold: {trainer.model.config.exit_conf_threshold}")
-            logger.info(f"Model's config: {trainer.model.config}")
 
-        num_samples = additional_args.calibrate_sample_size
+        num_samples = additional_args.max_eval_samples
         delta = additional_args.calibrate_delta
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
