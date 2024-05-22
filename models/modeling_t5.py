@@ -39,7 +39,8 @@ from util import (
     split_tensors_by_mask, 
     restore_tensors_by_mask,
     get_skip_mask,
-    TransformerClassifier
+    TransformerClassifier,
+    TransformerLinearClassifier
 )
 
 
@@ -790,8 +791,17 @@ class EffT5ForConditionalGeneration(T5ForConditionalGeneration):
                 nn.Linear(config.d_model, 2, bias=True)
             )
 
-        elif self.config.exit_conf_type == 'transformer':
+        elif self.config.exit_conf_type == 'transformer_linear':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 16)
+
+        elif self.config.exit_conf_type == 'MLP':
+            self.cm_head = nn.Sequential(nn.Linear(config.d_model, config.d_model),
+                                          nn.ReLU(), 
+                                          nn.Linear(config.d_model, 2))
+            
+        elif self.config.exit_conf_type == 'transformer_MLP':
             self.cm_head = TransformerClassifier(config.d_model, 16)
+            
         else: self.cm_head = None
         
         

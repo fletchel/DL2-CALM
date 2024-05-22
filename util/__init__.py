@@ -20,4 +20,5 @@ from .bmm import (
 
 from .conf_classifier import (
     TransformerClassifier,
+    TransformerLinearClassifier
 )

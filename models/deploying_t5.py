@@ -44,7 +44,8 @@ from transformers.utils import logging
 from util import (
     get_skip_mask,
     BetaMixture1D,
-    TransformerClassifier
+    TransformerClassifier,
+    TransformerLinearClassifier
 ) 
 
 logger = logging.get_logger(__name__)
@@ -1036,14 +1037,24 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.decoder.lm_head = self.lm_head
-        if self.config.exit_conf_type == 'meta' or self.config.shallow2deep_conf_type == "meta":
+
+        if self.config.exit_conf_type == 'vanilla_classifier':
             self.cm_head = nn.Sequential(
                 nn.Linear(config.d_model, 2, bias=True)
             )
-        elif self.config.exit_conf_type == 'transformer':
+
+        elif self.config.exit_conf_type == 'transformer_linear':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 16)
+
+        elif self.config.exit_conf_type == 'MLP':
+            self.cm_head = nn.Sequential(nn.Linear(config.d_model, config.d_model),
+                                          nn.ReLU(), 
+                                          nn.Linear(config.d_model, 2))
+            
+        elif self.config.exit_conf_type == 'transformer_MLP':
             self.cm_head = TransformerClassifier(config.d_model, 16)
-        else:
-            self.cm_head = None
+            
+        else: self.cm_head = None
 
         # RollBack policy
         self.rollback_num = 0
