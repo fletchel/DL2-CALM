@@ -34,7 +34,7 @@ srun python -u run_summarization.py \
     --max_calibrate_samples 100 \
     --use_early_exit True \
     --exit_conf_type softmax \
-    --exit_min_layer 4 \
+    --exit_min_layer 1 \
     --calibrate_delta 10 \
     --calibrate_epsilon 0.1 \
     --consistency_type textual 

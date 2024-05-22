@@ -425,7 +425,8 @@ class DeployT5Block(T5Block):
         parallel_mask=False,
         stack_hidden_states=None,
     ):
-    
+        
+        #print(self.config.exit_conf_threshold)
         if past_key_value is not None:
             if not self.is_decoder:
                 logger.warning("`past_key_values` is passed to the encoder. Please make sure this is intended.")
@@ -729,6 +730,7 @@ class DeployT5Stack(T5Stack):
             While a few early layers are defined as 'Shallow' decoder, the entire network including Shallow is defined as 'Deep' decoder.
             Each token can skip the Deep decoder path if confidence at Shallow decoder is higher than threshold.
         """
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         use_cache = use_cache if use_cache is not None else self.config.use_cache
@@ -1016,7 +1018,6 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
     def __init__(self, config):
         super().__init__(config)
         self.model_dim = config.d_model
-
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
 
         encoder_config = copy.deepcopy(config)

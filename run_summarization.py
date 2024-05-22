@@ -558,25 +558,34 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Calibration
     if additional_args.do_cali:
-        thresholds = [1, .75, .5, .25, .1]
-
-        # Build a list of trainers where in each trainer the exit_conf_threshold is set to a different value from the thresholds list
+        thresholds = [1,.75,.5,.25,.1]
         trainers = []
+
         # for each threshold in the thresholds list, we create a new trainer with the threshold set to the current threshold value
         # we make deep copies of the model, training_args, additional_args to avoid changing the original values
         # we adjust the threshold in the model and training_args (only model should be required).
         # We then create a list of trainers (which are wrappers around the model per threshold) which we will use to calibrate the method.
+
         for threshold in thresholds:
+
+            config_copy = deepcopy(config)
+            config_copy.exit_conf_threshold = threshold
+            model = model_cls.from_pretrained(
+                model_name,
+                from_tf=bool(".ckpt" in model_args.model_name_or_path),
+                config=config_copy,
+                cache_dir=model_args.cache_dir,
+                revision=model_args.model_revision,
+                use_auth_token=True if model_args.use_auth_token else None,
+            )
             # make deep copy of training_args
             additional_args_update = deepcopy(additional_args)
             training_args_update = deepcopy(training_args)
-
             additional_args_update.exit_conf_threshold = threshold
             training_args_update = adjust_training_args(training_args_update, additional_args_update)
-            model_copy = deepcopy(model)
-            model_copy.config.exit_conf_threshold = threshold
+
             trainer = trainer_cls(
-                model=model_copy,
+                model=model,
                 args=training_args_update,
                 train_dataset=None,
                 eval_dataset=eval_dataset,
@@ -585,6 +594,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 compute_metrics=compute_metrics if training_args.predict_with_generate else None
             )
             trainers.append(trainer)
+
         logger.info("Done creating trainers per threshold.")
 
         num_samples = data_args.max_calibrate_samples
@@ -600,7 +610,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
         # TODO take the lambda_mins and save them to a file.
 
-        output_calibration_file = os.path.join(additional_args.output_dir, "calibration.json")
+        output_calibration_file = os.path.join(training_args.output_dir, "calibration.json")
         with open(output_calibration_file, "w") as f:
             json.dump({"lambda_min": lambda_min, "delta": delta, "epsilon": epsilon, "thresholds": thresholds, "num_samples": num_samples, "consistency_type": consistency_type}, f)
 

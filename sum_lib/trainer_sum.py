@@ -206,7 +206,8 @@ class SumTrainer(Seq2SeqTrainer):
             self.deepspeed = deepspeed_engine
 
         model = self._wrap_model(self.model, training=False, dataloader=dataloader)
-
+        
+        
         # if full fp16 or bf16 eval is wanted and this ``evaluation`` or ``predict`` isn't called
         # while ``train`` is running, cast it to the right dtype first and then put on device
         if not self.is_in_train:
@@ -406,7 +407,7 @@ class SumTrainer(Seq2SeqTrainer):
         """
         has_labels = "labels" in inputs
         inputs = self._prepare_inputs(inputs)
-
+        
         # XXX: adapt synced_gpus for fairscale as well
         gen_kwargs = self._gen_kwargs.copy()
         if gen_kwargs.get("max_length") is None and gen_kwargs.get("max_new_tokens") is None:
