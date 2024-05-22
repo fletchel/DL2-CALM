@@ -575,7 +575,6 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             training_args_update = adjust_training_args(training_args_update, additional_args_update)
             model_copy = deepcopy(model)
             model_copy.config.exit_conf_threshold = threshold
-            logger.info(f"exit_conf_threshold: {model_copy.config.exit_conf_threshold}")
             trainer = trainer_cls(
                 model=model_copy,
                 args=training_args_update,
@@ -586,24 +585,16 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 compute_metrics=compute_metrics if training_args.predict_with_generate else None
             )
             trainers.append(trainer)
-
         logger.info("Done creating trainers per threshold.")
 
-        # Check the exit_conf_threshold for each trainer
-        logger.info("*** Check exit_conf_threshold per trainer:***")
-        for trainer in trainers:
-        #     check the trainer's exit_conf_threshold and print to log
-            logger.info(f"Trainer's exit_conf_threshold: {trainer.model.config.exit_conf_threshold}")
-
-        num_samples = data_args.max_eval_samples
+        num_samples = data_args.max_calibrate_samples
         delta = additional_args.calibrate_delta
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
 
-
         logger.info("*** Calibrate ***")
 
-        lambda_min = calibrate(trainers,  thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type,  logger)
+        lambda_min = calibrate(trainers,  thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type, num_samples, logger)
 
         logger.info("*** End of Calibrate ***")
 

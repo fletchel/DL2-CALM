@@ -1,6 +1,8 @@
 import numpy as np
 import logging
 from transformers.trainer_utils import PredictionOutput
+from datasets import load_metric
+import evaluate
 
 def calculate_empirical_average(L_values):
     return np.mean(L_values)
@@ -29,36 +31,46 @@ def textual_consistency(L_early: list, L_full: list):
 
     return 1 - intersection / union
 
-def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type='textual', logger=None):
+def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type='textual', num_samples = 100, logger=None):
     lambda_min = 1
-    logger.info('Before full val:')
-    L_full_val: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
-    logger.info('After full val and before detokenizer:')
-    decoder_output_full = tokenizer.batch_decode(L_full_val.predictions, skip_special_tokens=True)
-    logger.info('After detokenizer:')
-    logger.info(decoder_output_full[0])
+    num_samples = min(len(cali_dataset), num_samples) 
+    cali_dataset = cali_dataset.select(range(num_samples))
+    logger.info(f"Calibrating with {num_samples} samples")
 
-    for i, L_trainer in enumerate(trainers):
+    logger.info('No early exiting:')
+    L_full_val: PredictionOutput = trainers[0].evaluate(cali_dataset, metric_key_prefix="eval")
+    print(L_full_val)
+    # decoder_output_full = tokenizer.batch_decode(L_full_val.predictions, skip_special_tokens=True) 
+    # references = tokenizer.batch_decode(L_full_val.labels)
+
+    logger.info('With early exiting:')
+    for i, L_trainer in enumerate(trainers[1:]):
         L_values = []
-        logger.info(f"Calibrating with trainer {i}")
-        logger.info(f"Calibrating with threshold {thresholds[i]}")
-        logger.info(f"Calibrating with threshold (from model) {L_trainer.model.config.early_exit_threshold}")
+        logger.info(f"Calibrating with trainer {i}, threshold (from model) {L_trainer.model.config.exit_conf_threshold}")
 
-        L_early_val: PredictionOutput = L_trainer.predict(cali_dataset, metric_key_prefix="predict")
-        decoder_output_early = tokenizer.batch_decode(L_early_val.predictions, skip_special_tokens=True)
+        L_early_val: PredictionOutput = L_trainer.evaluate(cali_dataset, metric_key_prefix="eval")
+        print(L_early_val)
+        # decoder_output_early = tokenizer.batch_decode(L_early_val.predictions, skip_special_tokens=True)
 
-        logger.info(f"Early (index 0): {decoder_output_early[0]}, Full: {decoder_output_full[0]}")
-        logger.info(f"Early (index {len(cali_dataset)-1}): {decoder_output_early[len(cali_dataset)-1]}, Full: {decoder_output_full[len(cali_dataset)-1]}")
+        # logger.info(f"Early (index 0): {decoder_output_early[0]}") 
+        # logger.info(f"Full (index 0): {decoder_output_full[0]}")
+        # logger.info(f"Early (index {num_samples-1}): {decoder_output_early[num_samples-1]}") 
+        # logger.info(f"Full (index {num_samples-1}): {decoder_output_full[num_samples-1]}")
 
-        # TODO: the textual/risk stuff is all wrong atm
-        if consistency_type == 'textual':
-            L_val = textual_consistency(decoder_output_early, decoder_output_full)
-            logger.info(f"Textual consistency: {L_val}")
+        # # TODO: the textual/risk stuff is all wrong atm
+        # if consistency_type == 'textual':
 
-        else:  # risk consistency
-            L_val = max(0, L_early_val - L_full_val)
+        #     rouge_metric = evaluate.load("rouge")
+        #     L_val = 1-rouge_metric.compute(predictions=decoder_output_early, references=decoder_output_full)["rougeL"]
+        #     logger.info(f"Textual consistency: {L_val}")
 
-        L_values.append(L_val)
+        # else:  # risk consistency
+            
+        #     R_early = 1-rouge_metric.compute(predictions=decoder_output_early, references=references)["rougeL"]
+        #     R_full = 1-rouge_metric.compute(predictions=decoder_output_full, references=references)["rougeL"]
+        #     L_val = max(0, R_early - R_full)
+
+        # L_values.append(L_val)
 
         empirical_avg = calculate_empirical_average(L_values)
         p_j = hoeffding_p_value(empirical_avg, delta, len(cali_dataset))

@@ -19,7 +19,7 @@ source activate calm
 # Run your code
 
 srun python -u run_summarization.py \
-    --model_name_or_path /save/cnndm_t5_small_run2 \
+    --model_name_or_path ../cnndm_t5_small_run2 \
     --do_cali True \
     --dataset_name cnn_dailymail \
     --dataset_config_name "3.0.0" \
@@ -28,15 +28,17 @@ srun python -u run_summarization.py \
     --deploy_scenario True \
     --use_synchronize True \
     --overwrite_output_dir \
-    --predict_with_generate \
+    --predict_with_generate True \
     --source_prefix "summarize: " \
     --max_eval_samples 1000 \
+    --max_calibrate_samples 100 \
     --use_early_exit True \
     --exit_conf_type softmax \
     --exit_min_layer 4 \
     --calibrate_delta 10 \
     --calibrate_epsilon 0.1 \
-    --consistency_type textual \
+    --consistency_type textual 
+    # > outputs/output4.log 2>&1
 
     # FREE
     # --use_shallow_deep True \
