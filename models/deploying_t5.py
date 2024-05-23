@@ -1441,11 +1441,15 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                         cross_attentions += (outputs.cross_attentions,)
 
                 if True:
+                    print(outputs.hidden_states)
                     decoder_hidden_states += (
                         (outputs.decoder_hidden_states,)
                         if self.config.is_encoder_decoder
                         else (outputs.hidden_states,)
                     )
+                    print(decoder_hidden_states)
+                    print("??")
+                    print(kk)
 
             # argmax
             next_tokens = torch.argmax(next_tokens_scores, dim=-1)
