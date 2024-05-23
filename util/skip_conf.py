@@ -91,6 +91,8 @@ def get_skip_mask(
             classifier=classifier
         )
 
+        print(conf)
+
     else:
         conf = conf_measure(
             logits=logits, 
