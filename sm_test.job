@@ -37,7 +37,8 @@ srun python -u run_summarization.py \
     --exit_min_layer 1 \
     --calibrate_delta 10 \
     --calibrate_epsilon 0.1 \
-    --consistency_type textual 
+    --consistency_type textual \
+    --thresholds (1 .9 .8 .7 .6 .5 .4 .3 .2 .1) 
     # > outputs/output4.log 2>&1
 
     # FREE

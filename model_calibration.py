@@ -20,9 +20,9 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
 
     logger.info('No early exiting:')
     L_full_val: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
+    print(L_full_val)
     decoder_output_full = tokenizer.batch_decode(L_full_val.predictions, skip_special_tokens=True) 
     references = tokenizer.batch_decode(L_full_val.label_ids, skip_special_tokens=True)
-    
 
     logger.info('With early exiting:')
     for i, L_trainer in enumerate(trainers[1:]):
@@ -30,6 +30,7 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
         logger.info(f"Calibrating with trainer {i}, threshold (from model) {L_trainer.model.config.exit_conf_threshold}")
 
         L_early_val: PredictionOutput = L_trainer.predict(cali_dataset, metric_key_prefix="predict")
+        logger.info(L_early_val.metrics)
         decoder_output_early = tokenizer.batch_decode(L_early_val.predictions, skip_special_tokens=True)
 
         logger.info(f"Early (index 0): {decoder_output_early[0]}") 
