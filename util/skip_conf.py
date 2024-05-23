@@ -40,7 +40,8 @@ def transformer_confidence(hidden_states, classifier):
     probs = torch.softmax(preds, dim=-1)
     print(probs.shape)
     print(probs)
-    print(jd)
+    if hidden_states.shape[1] > 5:
+        print(jfjf)
     return probs[..., 1].squeeze()
 
 
