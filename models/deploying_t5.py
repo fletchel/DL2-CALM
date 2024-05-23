@@ -809,7 +809,7 @@ class DeployT5Stack(T5Stack):
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
         cross_attn_head_mask = self.get_head_mask(cross_attn_head_mask, self.config.num_layers)
         present_key_value_states = [] if use_cache else None
-        all_hidden_states = torch.zeros((num_layers, self.config.d_model), device=inputs_embeds.device)
+        all_hidden_states = torch.empty((num_layers, self.config.d_model), device=inputs_embeds.device)
         all_attentions = None
         all_cross_attentions = None
         position_bias = None
@@ -983,6 +983,9 @@ class DeployT5Stack(T5Stack):
 
             hidden_states, present_key_value_state = layer_outputs[:2]
 
+            print(hidden_states.shape)
+            print(all_hidden_states.shape)
+            print(cjj)
             all_hidden_states[i] = hidden_states
 
             # We share the position biases between the layers - the first layer store them
