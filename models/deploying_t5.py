@@ -927,9 +927,8 @@ class DeployT5Stack(T5Stack):
                         #lm_logits[..., 0] = -1000 # exclude pad token
                         if 'transformer' in self.config.exit_conf_type:
 
-                            all_hidden_states[i] = hidden_states.squeeze(0)
-
-                            cur_full_states = torch.cat([decoder_hidden_states[i], hidden_states], dim=1)
+                            all_hidden_states[i] = hidden_states.squeeze(0))
+                            cur_full_states = torch.cat([decoder_hidden_states[i].unsqueeze(0), hidden_states], dim=1)
                             skip_mask = get_skip_mask(
                                 lm_logits,
                                 _hidden_states,
