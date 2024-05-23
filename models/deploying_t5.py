@@ -1003,11 +1003,7 @@ class DeployT5Stack(T5Stack):
             hidden_states = self.dropout(hidden_states)
         if self.config.use_synchronize: torch.cuda.synchronize()
         if self.is_decoder: self.deploy_time['time_others'] += (datetime.datetime.now() - start)
-        
-        print(hidden_states.shape)
-        print(len(all_hidden_states))
-        print(all_hidden_states[0].shape)
-        print(jrrjjr)
+
         if not return_dict:
             return tuple(
                 v
@@ -1139,9 +1135,6 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                                                             past_key_values, inputs_embeds, decoder_inputs_embeds, labels, use_cache,
                                                             output_attentions, output_hidden_states, return_dict, decoder_hidden_states)
 
-        print(decoder_outputs.hidden_states.shape)
-        print(decoder_outputs.last_hidden_state.shape)
-        print(Yrk)
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         if self.decoder.lm_logits is None:  # token has not skipped
@@ -1259,7 +1252,6 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             self.bmm_update_iter += 1
         
         # Decode
-        print(return_dict)
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
@@ -1277,9 +1269,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             cm_head=self.cm_head,
             decoder_hidden_states=decoder_hidden_states
         )
-        print(decoder_outputs.hidden_states.shape)
-        print(decoder_outputs.last_hidden_state.shape)
-        print(rk)
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         self.deploy_time['time_decoder_forward'] += (datetime.datetime.now() - start)
         for k, v in self.decoder.deploy_time.items():
