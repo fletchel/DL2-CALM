@@ -22,7 +22,6 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
     L_full_val: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
     decoder_output_full = tokenizer.batch_decode(L_full_val.predictions, skip_special_tokens=True) 
     references = tokenizer.batch_decode(L_full_val.label_ids, skip_special_tokens=True)
-    
 
     logger.info('With early exiting:')
     for i, L_trainer in enumerate(trainers[1:]):
