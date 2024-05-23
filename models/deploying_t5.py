@@ -928,8 +928,9 @@ class DeployT5Stack(T5Stack):
 
                             print(_hidden_states.shape)
                             print(decoder_hidden_states)
-                            print(decoder_hidden_states[0].shape)
-                            print(jjw)
+                            if len(decoder_hidden_states) != 0:
+                                print(decoder_hidden_states[-1].shape)
+                                print(jjw)
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
