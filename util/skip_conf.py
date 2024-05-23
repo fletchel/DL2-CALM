@@ -83,7 +83,7 @@ def get_skip_mask(
 
     conf_measure = get_confidence_class(key=key)    
 
-    if decoder_hidden_states:
+    if all_decoder_states:
 
         conf = conf_measure(
             logits=logits,
