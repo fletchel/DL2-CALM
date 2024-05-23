@@ -803,12 +803,13 @@ class DeployT5Stack(T5Stack):
                     "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
                 )
                 use_cache = False
-
+        
+        num_layers = len(self.block)
         # Prepare head mask if needed
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
         cross_attn_head_mask = self.get_head_mask(cross_attn_head_mask, self.config.num_layers)
         present_key_value_states = [] if use_cache else None
-        all_hidden_states = ()
+        all_hidden_states = torch.zeros((num_layers, self.config.d_model), device=inputs_embeds.device)
         all_attentions = None
         all_cross_attentions = None
         position_bias = None
@@ -927,10 +928,11 @@ class DeployT5Stack(T5Stack):
                         if 'transformer' in self.config.exit_conf_type:
 
                             print(_hidden_states.shape)
-                            print(decoder_hidden_states)
-                            if len(decoder_hidden_states) != 0:
-                                print(decoder_hidden_states[-1].shape)
-                                print(jjw)
+                            print(decoder_hidden_states.shape)
+
+                            if decoder_hidden_states.shape[1] > 2:
+                                print(decoder_hidden_states.shape)
+                                print(itk)
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
@@ -981,7 +983,7 @@ class DeployT5Stack(T5Stack):
 
             hidden_states, present_key_value_state = layer_outputs[:2]
 
-            all_hidden_states = all_hidden_states + (hidden_states,)
+            all_hidden_states[i] = hidden_states
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
@@ -1335,11 +1337,12 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         )
 
         # init attention / hidden states / scores tuples
+        num_layers = self.config.num_decoder_layers
         scores = () if (return_dict_in_generate and output_scores) else None
         decoder_attentions = () if (return_dict_in_generate and output_attentions) else None
         cross_attentions = () if (return_dict_in_generate and output_attentions) else None
-        decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
-        decoder_hidden_states = ()
+        #decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
+        decoder_hidden_states = torch.empty((num_layers, 0, config.d_model), device=input_ids.device)
         # if model is an encoder-decoder, retrieve encoder attention weights and hidden states
         if return_dict_in_generate and self.config.is_encoder_decoder:
             encoder_attentions = model_kwargs["encoder_outputs"].get("attentions") if output_attentions else None
@@ -1450,11 +1453,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                         else (outputs.hidden_states,)
                     )
 
-            decoder_hidden_states += (
-                (outputs.decoder_hidden_states,)
-                if self.config.is_encoder_decoder
-                else (outputs.hidden_states,)
-            )
+            decoder_hidden_states = torch.cat([decoder_hidden_states, outputs.decoder_hidden_states.unsqueeze(1)], dim=1)
             # argmax
             next_tokens = torch.argmax(next_tokens_scores, dim=-1)
 
