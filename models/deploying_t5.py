@@ -1253,6 +1253,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             self.bmm_update_iter += 1
         
         # Decode
+        print(return_dict)
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
@@ -1270,6 +1271,9 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             cm_head=self.cm_head,
             decoder_hidden_states=decoder_hidden_states
         )
+        print(decoder_outputs.hidden_states.shape)
+        print(decoder_outputs.last_hidden_state.shape)
+        print(rk)
         if self.config.use_synchronize: torch.cuda.synchronize()
         self.deploy_time['time_decoder_forward'] += (datetime.datetime.now() - start)
         for k, v in self.decoder.deploy_time.items():
