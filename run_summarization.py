@@ -607,8 +607,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         lambda_min = calibrate(trainers,  thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type, num_samples, logger)
 
         logger.info("*** End of Calibrate ***")
-
-        # TODO take the lambda_mins and save them to a file.
+        logger.info(f"Calibration done. Lambda_min: {lambda_min}")
 
         output_calibration_file = os.path.join(training_args.output_dir, "calibration.json")
         with open(output_calibration_file, "w") as f:

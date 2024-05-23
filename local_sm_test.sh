@@ -11,12 +11,12 @@ python run_summarization.py \
     --predict_with_generate True \
     --source_prefix "summarize: " \
     --max_eval_samples 10 \
-    --max_calibrate_samples 50 \
+    --max_calibrate_samples 10 \
     --use_early_exit True \
     --exit_conf_type softmax \
     --exit_min_layer 1 \
-    --calibrate_delta 10 \
+    --calibrate_delta .6 \
     --calibrate_epsilon 0.05 \
     --consistency_type textual \
     --thresholds 1.0 0.9 0.8 0.7 0.6 \
-    > outputs/output8.log 2>&1
+    > outputs/output9.log 2>&1
