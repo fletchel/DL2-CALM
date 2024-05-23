@@ -1132,6 +1132,10 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                                                             head_mask, decoder_head_mask, cross_attn_head_mask, encoder_outputs,
                                                             past_key_values, inputs_embeds, decoder_inputs_embeds, labels, use_cache,
                                                             output_attentions, output_hidden_states, return_dict, decoder_hidden_states)
+
+        print(decoder_outputs.hidden_states.shape)
+        print(decoder_outputs.last_hidden_state.shape)
+        print(Yrk)
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         if self.decoder.lm_logits is None:  # token has not skipped
@@ -1374,11 +1378,6 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                 output_hidden_states=output_hidden_states,
                 decoder_hidden_states=decoder_hidden_states
             )       
-
-            print(outputs.hidden_states.shape)
-            print(outputs.last_hidden_state.shape)
-            print(jrjr)
-
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
             
