@@ -929,7 +929,7 @@ class DeployT5Stack(T5Stack):
 
                             all_hidden_states[i] = hidden_states.squeeze(0)
 
-                            skip_mask =skip_mask = get_skip_mask(
+                            skip_mask = get_skip_mask(
                                 lm_logits,
                                 _hidden_states,
                                 cm_head,
