@@ -982,11 +982,11 @@ class DeployT5Stack(T5Stack):
                 layer_outputs = layer_outputs[:1] + (None,) + layer_outputs[1:]
 
             hidden_states, present_key_value_state = layer_outputs[:2]
-
-            print(hidden_states.shape)
-            print(all_hidden_states.shape)
-            print(cjj)
-            all_hidden_states[i] = hidden_states
+            if self.is_decoder:
+                print(hidden_states.shape)
+                print(all_hidden_states.shape)
+                print(cjj)
+            all_hidden_states[i] = hidden_states.squeeze(0)
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
