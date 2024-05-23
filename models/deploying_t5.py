@@ -929,13 +929,14 @@ class DeployT5Stack(T5Stack):
 
                             all_hidden_states[i] = hidden_states.squeeze(0)
 
+                            cur_full_states = torch.cat([decoder_hidden_states[i], hidden_states], dim=1)
                             skip_mask = get_skip_mask(
                                 lm_logits,
                                 _hidden_states,
                                 cm_head,
                                 config=self.config,
                                 pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
-                                all_decoder_states = decoder_hidden_states
+                                all_decoder_states = cur_full_states
                             )
 
                         else:
