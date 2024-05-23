@@ -558,7 +558,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Calibration
     if additional_args.do_cali:
-        thresholds = [1,.75,.5,.25,.1]
+        thresholds = additional_args.thresholds
         trainers = []
 
         # for each threshold in the thresholds list, we create a new trainer with the threshold set to the current threshold value

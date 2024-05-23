@@ -54,6 +54,9 @@ class AdditionalArguments:
     train_meta_cm_head: Optional[bool] = field(
         default=False, metadata={"help": ("Train cm (confidence measure) head to align last hidden_states when exit_conf_type is set to meta.")}
     )
+    thresholds: Optional[List[float]] = field(
+        default=None, metadata={"help": ("Thresholds for calibration")}
+    )
         
     # shallow-deep framework
     use_shallow_deep: Optional[bool] = field(
