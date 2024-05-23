@@ -35,12 +35,14 @@ def meta_confidence(
 def transformer_confidence(hidden_states, classifier):
 
     print(hidden_states.shape)
+    print(hidden_states)
     preds = classifier(hidden_states.transpose(0, 1)).transpose(0, 1)
     print(preds.shape)
     print(preds)
     probs = torch.softmax(preds, dim=-1)
     print(probs.shape)
     print(probs)
+    print(tkkt)
     if hidden_states.shape[1] > 5:
         print(jfjf)
     return probs[..., 1].squeeze()
