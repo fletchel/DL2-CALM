@@ -20,6 +20,7 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
     cali_dataset = cali_dataset.select(range(num_samples))
 
     L_full_val: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
+    print(L_full_val[2]['predict_block_avg'], trainers[0].model.config.exit_conf_threshold)
     decoder_output_full = tokenizer.batch_decode(L_full_val[0], skip_special_tokens=True) 
     references = tokenizer.batch_decode(L_full_val[1], skip_special_tokens=True)
 
@@ -28,6 +29,7 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
 
         L_early_val: PredictionOutput = L_trainer.predict(cali_dataset, metric_key_prefix="predict")
         decoder_output_early = tokenizer.batch_decode(L_early_val[0], skip_special_tokens=True)
+        print(L_early_val[2]['predict_block_avg'],  L_trainer.model.config.exit_conf_threshold)
 
         if consistency_type == 'textual':
 

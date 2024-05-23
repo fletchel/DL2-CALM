@@ -19,4 +19,4 @@ python run_summarization.py \
     --calibrate_epsilon 0.05 \
     --consistency_type textual \
     --thresholds 1.0 0.9 0.8 0.7 0.6 \
-    > outputs/output9.log 2>&1
+    > outputs/output10.log 2>&1
