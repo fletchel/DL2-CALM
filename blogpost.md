@@ -23,6 +23,52 @@ The confidence estimation is a crucial element of CALM; an underperforming metho
 
 In the experiments shown in CALM paper, **softmax response** consistently outperformed the other methods in terms of performance for the same average number of decoder layers traversed per generated token and usually leading to the greatest speedup compared to the baseline.
 
+# **Statistical Guarantees on Early-Exiting Performance**
+
+Besides proposing a new early-exiting mechanism via the confidence measures on intermediate decoder tokens as described above, the paper also presents a statistical procedure which allows the implementer to obtain probabilistic guarantees on the disparity between the generations of the full LLM and the early exiting LLM.
+
+To make this be more precise, let $S_{cal} = (P_i)_{i \in [n]}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t<m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
+
+The key idea of early-exiting is to use some earlier decoder state $d_t^i$ with $i<L$ to obtain this vocabulary distribution. We use some earlier decoder state $d_t^i$ if its local exiting threshold $\lambda_t^i$ is exceeded by the local confidence score $c_t^i$. Several ways of obtaining this local confidence score have been discussed above.
+
+We now turn to the problem of determining $\lambda$. There are two disparities we account for between early-exited and full generations: textual consistency and risk consistency. They are defined as follows.
+
+Let $P^*$ be an i.i.d prompt, and let $Y_{early}=LLM_{early}(P^*),\ Y_{full} = LLM_{full}(P^*)$. We say $Y_{early}$ is *textually consistent* with $Y_{full}$ if, given a bounded dissimilarity function $\mathcal{D}$, we have that the dissimilarity is no more than a user-specified tolerance $\delta$ in expectation with high probability:
+
+$$
+\mathbb{P}(\mathbb{E}[\mathcal{D}(Y_{early},Y_{full})]\leq \delta)\geq 1- \varepsilon
+$$
+
+for $\varepsilon \in (0,1)$. To define *risk consistency*, we require a dataset which also comes with labels/targets. Here $S_{cal}=(P_i,Z_i)_{i \in [n]}$. Given a bounded risk function $\mathcal{R}$, we have risk consistency if 
+
+$$
+\mathbb{P}(\mathbb{E}[\mathcal{R}(Y_{early},Z_{test})-\mathcal{R}(Y_{full},Z_{test})]\leq \delta)\geq 1- \varepsilon
+$$
+
+where $\delta, \varepsilon$ are tolerance, confidence parameters respectively. 
+
+Going forward, we change the notation for LLMs slightly. Since $LLM_{early}$ depends on $\lambda$ - the exiting threshold, we’ll highlight this by writing $LLM_{early}(\lambda, \cdot ).$ Note $LLM_{full}(1,\cdot).$ The recipe for determining the confidence threshold is as follows:
+
+1. We supply a list of possible threshold values $\Lambda = (\lambda_1, \dots, \lambda_k).$ 
+2. Select the minimal value of $\lambda$ that is valid w.r.t risk or textual consistency. 
+
+To do so, we use the Learn Then Test (LTT) framework of Angelopolous et al.
+
+In short, this creates for each $\lambda_j \in \Lambda$ a null hypothesis 
+
+$$
+H_j: LLM_{early}(\lambda_j,P_{test})\ \text{and}\ LLM_{full}(P_{test})\ \text{are not consistent.}
+$$
+
+This hypothesis is rejected/accepted dependent on a p-value $p_j$, which is derived (via e.g. Hoeffding’s inequality) from the empirical consistency of $LLM_{early}(\lambda_j, P_i)$  with the prompts $P_i$ taken from $S_{cal}$, the tolerance $\delta$ and the number of samples. 
+
+The method also takes advantage of two pieces of observed regularity in how the choice of $\lambda$ affects early-exiting:
+
+1. Nearby thresholds $\lambda \approx \lambda’$ perform similarly, 
+2.  If $\lambda_1>\lambda_2$, then the textual/risk consistency of $LLM_{early}(\lambda_1, \cdot)$ is less than that of $LLM_{early}(\lambda_2,\cdot)$.
+
+Given this, we order $\Lambda$ in descending other, where $\lambda_1=1$. For each $\lambda_i$ in order, if $H_i$ is rejected we go on to $\lambda_{i+1}$. If $H_i$ is accepted, then $\lambda_{i-1}$ is returned as the calibration threshold guaranteeing our consistency constrains with high probability. This algorithm is seen in Appendix E of the paper. We have also provided an implementation of this in our code base, see calibration_process.py.
+
 # Review
 
 `Exposition of its weaknesses/strengths/potential which triggered your group to come up with a response`
