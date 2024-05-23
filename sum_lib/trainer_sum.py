@@ -63,7 +63,39 @@ class SumTrainer(Seq2SeqTrainer):
             pad_length = (length // max_length + 1) * max_length - length
             tensor = torch.nn.functional.pad(tensor, (0, pad_length), value=pad_index)
         return tensor
-    
+
+    def predict(
+        self,
+        test_dataset: Dataset,
+        ignore_keys: Optional[List[str]] = None,
+        metric_key_prefix: str = "test",
+        **gen_kwargs,
+    ) -> "PredictionOutput":
+        predictions, label_ids, predict_metrics = super().predict(test_dataset, ignore_keys, metric_key_prefix, **gen_kwargs)
+        # average block layers
+        if self.model.decoder.use_shallow_deep:
+            total, deep = self.model.decoder.block_op[0], self.model.decoder.block_op[
+                self.model.decoder.shallow_exit_layer]
+            shallow = total - deep
+
+            # self.model.rollback_num: we should consider redundant operations due to rollback
+            block_op_metric = {'{}_block_avg'.format(metric_key_prefix): (deep * len(self.model.decoder.block_op) \
+                                                                          + (
+                                                                                      shallow + self.model.rollback_num) * self.model.decoder.shallow_exit_layer) / (
+                                                                                     total + 1e-10)}
+            # 'block_num' contains the number of token for [shallow, deep, parallel, rollback]
+            block_op_metric['{}_block_num'.format(metric_key_prefix)] = str(
+                [shallow, deep, self.model.decoder.parallel_tokens_shallow, self.model.decoder.parallel_tokens_deep,
+                 self.model.rollback_num])
+        else:
+            block_op_metric = {'{}_block_avg'.format(metric_key_prefix): sum(self.model.decoder.block_op) / (
+                        self.model.decoder.block_op[0] + 1e-10), }
+        predict_metrics.update(block_op_metric)
+
+
+        return predictions, label_ids, predict_metrics
+
+
     def evaluate(
             self,
             eval_dataset: Optional[Dataset] = None,
