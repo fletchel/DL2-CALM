@@ -930,7 +930,7 @@ class DeployT5Stack(T5Stack):
                             print(_hidden_states.shape)
                             all_hidden_states[i] = hidden_states.squeeze(0)
                             print(jdjd)
-                            
+
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
@@ -1338,7 +1338,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         decoder_attentions = () if (return_dict_in_generate and output_attentions) else None
         cross_attentions = () if (return_dict_in_generate and output_attentions) else None
         #decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
-        decoder_hidden_states = torch.empty((num_layers, 0, config.d_model), device=input_ids.device)
+        decoder_hidden_states = torch.empty((num_layers, 0, self.d_model), device=input_ids.device)
         # if model is an encoder-decoder, retrieve encoder attention weights and hidden states
         if return_dict_in_generate and self.config.is_encoder_decoder:
             encoder_attentions = model_kwargs["encoder_outputs"].get("attentions") if output_attentions else None
