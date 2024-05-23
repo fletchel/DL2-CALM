@@ -89,7 +89,11 @@ def get_skip_mask(
             logits=logits,
             hidden_states=all_decoder_states,
             classifier=classifier
-        )[-1]
+        )
+
+        if all_decoder_states.shape[1] > 1:
+
+            conf = conf[-1]
 
     else:
         conf = conf_measure(
