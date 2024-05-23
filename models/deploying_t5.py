@@ -1440,7 +1440,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                     if self.config.is_encoder_decoder:
                         cross_attentions += (outputs.cross_attentions,)
 
-                if output_hidden_states:
+                if True:
                     decoder_hidden_states += (
                         (outputs.decoder_hidden_states,)
                         if self.config.is_encoder_decoder
