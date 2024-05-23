@@ -41,7 +41,7 @@ def get_confidence_class(key):
         'transformer_MLP': meta_confidence
     }
 
-    if key is not 'softmax':
+    if key != 'softmax':
 
         return meta_confidence
     
