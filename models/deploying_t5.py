@@ -1001,7 +1001,9 @@ class DeployT5Stack(T5Stack):
             hidden_states = self.dropout(hidden_states)
         if self.config.use_synchronize: torch.cuda.synchronize()
         if self.is_decoder: self.deploy_time['time_others'] += (datetime.datetime.now() - start)
-
+        print(hidden_states)
+        print("hid states")
+        print(jdjd)
         if not return_dict:
             return tuple(
                 v
@@ -1446,7 +1448,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                         if self.config.is_encoder_decoder
                         else (outputs.hidden_states,)
                     )
-                    
+
             decoder_hidden_states += (
                 (outputs.decoder_hidden_states,)
                 if self.config.is_encoder_decoder
