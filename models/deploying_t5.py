@@ -927,7 +927,8 @@ class DeployT5Stack(T5Stack):
                         if 'transformer' in self.config.exit_conf_type:
 
                             print(_hidden_states.shape)
-                            print(decoder_hidden_states.shape)
+                            print(decoder_hidden_states)
+                            print(decoder_hidden_states[0].shape)
                             print(jjw)
                         skip_mask = get_skip_mask(
                             lm_logits,
