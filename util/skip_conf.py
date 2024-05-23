@@ -63,7 +63,7 @@ def get_skip_mask(
     pos_time: int = 1,
     adapt_threshold: float = None,
     return_conf=False,
-    decoder_hidden_states = None
+    all_decoder_states = None
 ):
 
     assert config.exit_conf_type is not None or config.shallow2deep_conf_type is not None
@@ -87,10 +87,10 @@ def get_skip_mask(
 
         conf = conf_measure(
             logits=logits,
-            hidden_states=decoder_hidden_states,
+            hidden_states=all_decoder_states,
             classifier=classifier
         )
-        
+
     else:
         conf = conf_measure(
             logits=logits, 
