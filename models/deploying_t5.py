@@ -1001,9 +1001,7 @@ class DeployT5Stack(T5Stack):
             hidden_states = self.dropout(hidden_states)
         if self.config.use_synchronize: torch.cuda.synchronize()
         if self.is_decoder: self.deploy_time['time_others'] += (datetime.datetime.now() - start)
-        print(hidden_states)
-        print("hid states")
-        print(jdjd)
+
         if not return_dict:
             return tuple(
                 v
@@ -1376,6 +1374,10 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                 output_hidden_states=output_hidden_states,
                 decoder_hidden_states=decoder_hidden_states
             )       
+
+            print(outputs.hidden_states.shape)
+            print(outputs.last_hidden_state.shape)
+            print(jrjr)
 
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
