@@ -27,7 +27,7 @@ def meta_confidence(
 ):
     assert hidden_states is not None
     assert classifier is not None
-    
+
     preds = classifier(hidden_states)
     probs = torch.softmax(preds, dim=-1)
     return probs[..., 1].squeeze()
@@ -37,9 +37,17 @@ def get_confidence_class(key):
 
     _conf_class_map = {
         'softmax': softmax_confidence,
-        'vanilla_classifier': meta_confidence,
-        'transformer': meta_confidence
+        'linear': meta_confidence,
+        'transformer_MLP': meta_confidence
     }
+
+    if key is not 'softmax':
+
+        return meta_confidence
+    
+    else:
+
+        return softmax_confidence
 
     if key in _conf_class_map:
         return _conf_class_map[key]

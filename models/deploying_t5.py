@@ -721,6 +721,7 @@ class DeployT5Stack(T5Stack):
         return_dict=None,
         lm_head=None,
         cm_head=None,
+        decoder_hidden_states=None
     ):
         r""" 
         We have implemented the following inference strategy:
@@ -923,7 +924,11 @@ class DeployT5Stack(T5Stack):
                             else lm_head(_hidden_states * (self.config.d_model ** -0.5))
                             
                         #lm_logits[..., 0] = -1000 # exclude pad token
+                        if 'transformer' in self.config.exit_conf_type:
 
+                            print(_hidden_states.shape)
+                            print(decoder_hidden_states.shape)
+                            print(jjw)
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
@@ -931,6 +936,7 @@ class DeployT5Stack(T5Stack):
                             config=self.config,
                             pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
                         )
+
                         if not skip_mask: self.block_op[i] += 1                    
                         if skip_mask: self.lm_logits = lm_logits
                         if self.config.use_synchronize: torch.cuda.synchronize()
@@ -1043,16 +1049,22 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                 nn.Linear(config.d_model, 2, bias=True)
             )
 
-        elif self.config.exit_conf_type == 'transformer_linear':
-            self.cm_head = TransformerLinearClassifier(config.d_model, 16)
+        elif self.config.exit_conf_type == 'transformer_linear_64':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_linear_512':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 512, 16)
 
         elif self.config.exit_conf_type == 'MLP':
             self.cm_head = nn.Sequential(nn.Linear(config.d_model, config.d_model),
                                           nn.ReLU(), 
                                           nn.Linear(config.d_model, 2))
             
-        elif self.config.exit_conf_type == 'transformer_MLP':
-            self.cm_head = TransformerClassifier(config.d_model, 16)
+        elif self.config.exit_conf_type == 'transformer_MLP_64':
+            self.cm_head = TransformerClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_MLP_512':
+            self.cm_head = TransformerClassifier(config.d_model, 512, 16)
             
         else: self.cm_head = None
 
@@ -1102,6 +1114,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        decoder_hidden_states = None
     ) -> Union[Tuple[torch.FloatTensor], Seq2SeqLMOutput]:
         r"""
         DeployT5ForConditionalGeneration class is for a deployment scenario,
@@ -1116,7 +1129,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         encoder_outputs, decoder_outputs = self.forward_impl(input_ids, attention_mask, decoder_input_ids, decoder_attention_mask,
                                                             head_mask, decoder_head_mask, cross_attn_head_mask, encoder_outputs,
                                                             past_key_values, inputs_embeds, decoder_inputs_embeds, labels, use_cache,
-                                                            output_attentions, output_hidden_states, return_dict)
+                                                            output_attentions, output_hidden_states, return_dict, decoder_hidden_states)
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         if self.decoder.lm_logits is None:  # token has not skipped
@@ -1184,6 +1197,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        decoder_hidden_states = None
     ):
     
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
@@ -1248,6 +1262,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             return_dict=return_dict,
             lm_head=self.lm_head,
             cm_head=self.cm_head,
+            decoder_hidden_states=decoder_hidden_states
         )
         if self.config.use_synchronize: torch.cuda.synchronize()
         self.deploy_time['time_decoder_forward'] += (datetime.datetime.now() - start)
@@ -1355,6 +1370,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                 return_dict=True,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
+                decoder_hidden_states=decoder_hidden_states
             )       
 
             if synced_gpus and this_peer_finished:
