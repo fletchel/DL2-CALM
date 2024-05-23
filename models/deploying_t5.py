@@ -928,7 +928,7 @@ class DeployT5Stack(T5Stack):
                         if 'transformer' in self.config.exit_conf_type:
 
                             all_hidden_states[i] = hidden_states.squeeze(0)
-                            cur_full_states = torch.cat([decoder_hidden_states[i].unsqueeze(0), _hidden_states], dim=1)
+                            cur_full_states = torch.cat([self.final_layer_norm(decoder_hidden_states[i].unsqueeze(0)), _hidden_states], dim=1)
                             skip_mask = get_skip_mask(
                                 lm_logits,
                                 _hidden_states,
@@ -1457,7 +1457,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                         else (outputs.hidden_states,)
                     )
 
-            decoder_hidden_states = torch.cat([decoder_hidden_states, self.final_layer_norm(outputs.decoder_hidden_states.unsqueeze(1))], dim=1)
+            decoder_hidden_states = torch.cat([decoder_hidden_states, outputs.decoder_hidden_states.unsqueeze(1)], dim=1)
             # argmax
             next_tokens = torch.argmax(next_tokens_scores, dim=-1)
 
