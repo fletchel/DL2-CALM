@@ -583,7 +583,6 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             training_args_update = deepcopy(training_args)
             additional_args_update.exit_conf_threshold = threshold
             training_args_update = adjust_training_args(training_args_update, additional_args_update)
-
             trainer = trainer_cls(
                 model=model,
                 args=training_args_update,
@@ -593,9 +592,8 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 data_collator=data_collator,
                 compute_metrics=compute_metrics if training_args.predict_with_generate else None
             )
-            trainers.append(trainer)
 
-        logger.info("Done creating trainers per threshold.")
+            trainers.append(trainer)
 
         num_samples = data_args.max_calibrate_samples
         delta = additional_args.calibrate_delta
@@ -607,8 +605,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         lambda_min = calibrate(trainers,  thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type, num_samples, logger)
 
         logger.info("*** End of Calibrate ***")
-
-        # TODO take the lambda_mins and save them to a file.
+        logger.info(f"Calibration done. Lambda_min: {lambda_min}")
 
         output_calibration_file = os.path.join(training_args.output_dir, "calibration.json")
         with open(output_calibration_file, "w") as f:
