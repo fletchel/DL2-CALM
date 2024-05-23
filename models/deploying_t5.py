@@ -927,9 +927,13 @@ class DeployT5Stack(T5Stack):
                         #lm_logits[..., 0] = -1000 # exclude pad token
                         if 'transformer' in self.config.exit_conf_type:
 
-                            print(_hidden_states.shape)
                             all_hidden_states[i] = hidden_states.squeeze(0)
-                            print(jdjd)
+
+                            if decoder_hidden_states.shape[1] > 4:
+
+                                print(decoder_hidden_states.shape)
+                                print(jde)
+
 
                         skip_mask = get_skip_mask(
                             lm_logits,
