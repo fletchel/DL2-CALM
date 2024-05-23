@@ -63,6 +63,7 @@ def get_skip_mask(
     pos_time: int = 1,
     adapt_threshold: float = None,
     return_conf=False,
+    decoder_hidden_states = None
 ):
 
     assert config.exit_conf_type is not None or config.shallow2deep_conf_type is not None
@@ -81,11 +82,20 @@ def get_skip_mask(
         threshold = config.shallow2deep_conf_threshold if adapt_threshold is None else adapt_threshold
 
     conf_measure = get_confidence_class(key=key)    
-    conf = conf_measure(
-        logits=logits, 
-        hidden_states=hidden_states, 
-        classifier=classifier,
-    )
+
+    if decoder_hidden_states:
+
+        conf = conf_measure(
+            logits=logits,
+            hidden_states=decoder_hidden_states,
+            classifier=classifier
+        )
+    else:
+        conf = conf_measure(
+            logits=logits, 
+            hidden_states=hidden_states, 
+            classifier=classifier,
+        )
   
     mask = torch.where(conf <= threshold, 0., 1.).bool()
 

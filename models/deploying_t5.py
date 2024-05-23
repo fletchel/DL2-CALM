@@ -929,19 +929,23 @@ class DeployT5Stack(T5Stack):
 
                             all_hidden_states[i] = hidden_states.squeeze(0)
 
-                            if decoder_hidden_states.shape[1] > 4:
+                            skip_mask =skip_mask = get_skip_mask(
+                                lm_logits,
+                                _hidden_states,
+                                cm_head,
+                                config=self.config,
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
+                                all_decoder_states = decoder_hidden_states
+                            )
 
-                                print(decoder_hidden_states.shape)
-                                print(jde)
-
-
-                        skip_mask = get_skip_mask(
-                            lm_logits,
-                            _hidden_states,
-                            cm_head,
-                            config=self.config,
-                            pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
-                        )
+                        else:
+                            skip_mask = get_skip_mask(
+                                lm_logits,
+                                _hidden_states,
+                                cm_head,
+                                config=self.config,
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
+                            )
 
                         if not skip_mask: self.block_op[i] += 1                    
                         if skip_mask: self.lm_logits = lm_logits
