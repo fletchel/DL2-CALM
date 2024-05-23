@@ -4,6 +4,16 @@ import torch
 from transformers import AutoConfig
 
 
+def sorted_softmax_confidence(
+        logits: torch.Tensor = None,
+        hidden_states: torch.Tensor = None,
+        classifier: torch.nn.Linear = None,
+):
+    assert logits is not None
+    probs = torch.softmax(logits, dim=-1)
+    return probs[..., 0] - probs[..., 1].squeeze()
+
+
 def softmax_confidence(
     logits: torch.Tensor = None,
     hidden_states: torch.Tensor = None,
@@ -30,10 +40,10 @@ def meta_confidence(
     return probs[..., 1].squeeze()
 
 
-def get_confidence_class(key):
+def get_confidence_class(key, sorted_logits=False):
 
     _conf_class_map = {
-        'softmax': softmax_confidence,
+        'softmax': sorted_softmax_confidence if sorted_logits else softmax_confidence,
         'meta': meta_confidence,
     }
 
@@ -51,6 +61,7 @@ def get_skip_mask(
     pos_time: int = 1,
     adapt_threshold: float = None,
     return_conf=False,
+    sorted_logits=False,
 ):
     assert config.exit_conf_type is not None or config.shallow2deep_conf_type is not None
 
@@ -68,7 +79,7 @@ def get_skip_mask(
         key = config.shallow2deep_conf_type
         threshold = config.shallow2deep_conf_threshold if adapt_threshold is None else adapt_threshold
 
-    conf_measure = get_confidence_class(key=key)    
+    conf_measure = get_confidence_class(key=key, sorted_logits=sorted_logits)
     conf = conf_measure(
         logits=logits, 
         hidden_states=hidden_states, 

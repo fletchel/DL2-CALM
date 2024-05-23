@@ -943,12 +943,25 @@ class DeployT5Stack(T5Stack):
 
                         #lm_logits[..., 0] = -1000 # exclude pad token
 
+                        sorted_logits = False
+                        if self.top_propagation is not None and top_k_tokens is None:
+                            # top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation,
+                            #                           sorted=True)
+                            top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation, sorted=True)
+                            top_k_tokens, lm_logits = top_k_results.indices, top_k_results.values
+                            top_k_tokens = top_k_tokens.squeeze(0)
+                            lm_logits = lm_logits.unsqueeze(0)
+                            #lm_logits = lm_logits[..., top_k_tokens]
+                            top_k_weight = lm_head.weight[top_k_tokens]
+                            sorted_logits = True
+
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
                             cm_head,
                             config=self.config,
-                            pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
+                            pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
+                            sorted_logits=sorted_logits
                         )
 
                         if skip_mask and top_k_tokens is not None:
@@ -958,17 +971,6 @@ class DeployT5Stack(T5Stack):
                                 dim=1, index=top_k_tokens.unsqueeze(0), src=lm_logits.squeeze(1)
                             )
                             lm_logits = lm_logits.unsqueeze(1)
-                            # temp_logits = torch.full((lm_head.weight.shape[0],),
-                            #                        fill_value=torch.finfo(lm_logits.dtype).min,
-                            #                        device=lm_logits.device)
-                            # temp_logits[top_k_tokens] = lm_logits
-                            # lm_logits = temp_logits.view(1, 1, -1)
-
-                        if not skip_mask and self.top_propagation is not None and top_k_tokens is None:
-                            top_k_tokens = torch.topk(lm_logits.squeeze(1), k=self.top_propagation, sorted=False).indices
-                            top_k_tokens = top_k_tokens.squeeze(0)
-                            #top_k_tokens = torch.arange(lm_logits.shape[-1], device=lm_logits.device)
-                            top_k_weight = lm_head.weight[top_k_tokens]
 
                         if not skip_mask: self.block_op[i] += 1                    
                         if skip_mask: self.lm_logits = lm_logits
