@@ -808,7 +808,7 @@ class DeployT5Stack(T5Stack):
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
         cross_attn_head_mask = self.get_head_mask(cross_attn_head_mask, self.config.num_layers)
         present_key_value_states = [] if use_cache else None
-        all_hidden_states = None
+        all_hidden_states = ()
         all_attentions = None
         all_cross_attentions = None
         position_bias = None
@@ -980,6 +980,8 @@ class DeployT5Stack(T5Stack):
                 layer_outputs = layer_outputs[:1] + (None,) + layer_outputs[1:]
 
             hidden_states, present_key_value_state = layer_outputs[:2]
+
+            all_hidden_states = all_hidden_states + (hidden_states,)
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
