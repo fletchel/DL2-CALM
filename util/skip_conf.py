@@ -32,6 +32,17 @@ def meta_confidence(
     probs = torch.softmax(preds, dim=-1)
     return probs[..., 1].squeeze()
 
+def transformer_confidence(hidden_states, classifier):
+
+    print(hidden_states.shape)
+    preds = classifier(hidden_states.transpose(0, 1)).transpose(0, 1)
+    print(preds.shape)
+    probs = torch.softmax(preds, dim=-1)
+    print(probs.shape)
+    print(probs)
+    print(jd)
+    return probs[..., 1].squeeze()
+
 
 def get_confidence_class(key):
 
@@ -41,13 +52,17 @@ def get_confidence_class(key):
         'transformer_MLP': meta_confidence
     }
 
-    if key != 'softmax':
+    if key == 'softmax':
 
-        return meta_confidence
+        return softmax_confidence
+
+    elif 'transformer' in key:
+
+        return transformer_confidence
     
     else:
 
-        return softmax_confidence
+        return meta_confidence
 
     if key in _conf_class_map:
         return _conf_class_map[key]
@@ -86,7 +101,6 @@ def get_skip_mask(
     if all_decoder_states is not None:
 
         conf = conf_measure(
-            logits=logits,
             hidden_states=all_decoder_states,
             classifier=classifier
         )
