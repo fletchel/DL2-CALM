@@ -928,11 +928,9 @@ class DeployT5Stack(T5Stack):
                         if 'transformer' in self.config.exit_conf_type:
 
                             print(_hidden_states.shape)
-                            print(decoder_hidden_states.shape)
-
-                            if decoder_hidden_states.shape[1] > 2:
-                                print(decoder_hidden_states.shape)
-                                print(itk)
+                            all_hidden_states[i] = hidden_states.squeeze(0)
+                            print(jdjd)
+                            
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
@@ -982,11 +980,6 @@ class DeployT5Stack(T5Stack):
                 layer_outputs = layer_outputs[:1] + (None,) + layer_outputs[1:]
 
             hidden_states, present_key_value_state = layer_outputs[:2]
-            if self.is_decoder:
-                print(hidden_states.shape)
-                print(all_hidden_states.shape)
-                print(cjj)
-            all_hidden_states[i] = hidden_states.squeeze(0)
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
