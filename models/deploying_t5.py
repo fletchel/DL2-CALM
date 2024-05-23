@@ -1005,7 +1005,8 @@ class DeployT5Stack(T5Stack):
         if self.is_decoder: self.deploy_time['time_others'] += (datetime.datetime.now() - start)
         
         print(hidden_states.shape)
-        print(all_hidden_states.shape)
+        print(len(all_hidden_states))
+        print(all_hidden_states[0].shape)
         print(jrrjjr)
         if not return_dict:
             return tuple(
