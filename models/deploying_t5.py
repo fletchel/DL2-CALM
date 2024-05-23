@@ -1001,7 +1001,10 @@ class DeployT5Stack(T5Stack):
             hidden_states = self.dropout(hidden_states)
         if self.config.use_synchronize: torch.cuda.synchronize()
         if self.is_decoder: self.deploy_time['time_others'] += (datetime.datetime.now() - start)
-
+        
+        print(hidden_states.shape)
+        print(all_hidden_states.shape)
+        print(jrrjjr)
         if not return_dict:
             return tuple(
                 v
