@@ -26,6 +26,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+from transformers.trainer_utils import PredictionOutput
 
 from transformers import Seq2SeqTrainer, Trainer 
 from transformers.utils import is_torch_tpu_available
@@ -70,7 +71,7 @@ class SumTrainer(Seq2SeqTrainer):
         ignore_keys: Optional[List[str]] = None,
         metric_key_prefix: str = "test",
         **gen_kwargs,
-    ) -> "PredictionOutput":
+    ) -> PredictionOutput:
         
         predictions, label_ids, predict_metrics = super().predict(test_dataset, ignore_keys, metric_key_prefix, **gen_kwargs)
         # average block layers
@@ -94,7 +95,7 @@ class SumTrainer(Seq2SeqTrainer):
         predict_metrics.update(block_op_metric)
 
 
-        return predictions, label_ids, predict_metrics
+        return PredictionOutput(predictions=predictions, label_ids=label_ids, metrics=predict_metrics)
 
 
     def evaluate(
