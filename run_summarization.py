@@ -614,20 +614,13 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         exit_layer_metrics = []
         L_vals = []
         lambdas = []
-        lambda_min = None
 
         for delta in deltas:
             logger.info(f"*** Calibrate with delta {delta}, epsilon {epsilon}, consistency type {consistency_type} ***")
+            lambda_min, early_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
+                                                             cali_dataset, tokenizer, consistency_type,
+                                                             num_samples, logger)\
 
-            if lambda_min:
-                index = thresholds.index(lambda_min)
-                lambda_min, early_metrics, L_val = calibrate(trainers[index-1:], thresholds, delta, epsilon,
-                                                                       cali_dataset, tokenizer, consistency_type,
-                                                                       num_samples, logger)
-            else:
-                lambda_min, early_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
-                                                                       cali_dataset, tokenizer, consistency_type,
-                                                                       num_samples, logger)
 
             exit_layer_metrics.append(early_metrics)
             L_vals.append(L_val)
