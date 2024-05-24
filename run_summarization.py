@@ -17,11 +17,14 @@
 Fine-tuning the library models for sequence to sequence.
 """
 import json
+import datetime
 from copy import deepcopy
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
+import matplotlib.pyplot as plt
 
 from dataclasses import dataclass, field
 from typing import Optional
+from transformers.trainer_utils import PredictionOutput
 
 import logging
 import os
@@ -221,7 +224,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         additional_args,
         max_answer_length=data_args.max_target_length
     )
-    
+
     tokenizer = AutoTokenizer.from_pretrained(
         tokenizer_name,
         cache_dir=model_args.cache_dir,
@@ -238,11 +241,11 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-        
+
     if additional_args.use_lora:
         if training_args.do_train:
             lora_config = LoraConfig(
-                task_type=TaskType.SEQ_2_SEQ_LM, r=additional_args.lora_rank, 
+                task_type=TaskType.SEQ_2_SEQ_LM, r=additional_args.lora_rank,
                 lora_alpha=additional_args.lora_alpha, lora_dropout=additional_args.lora_dropout,
                 target_modules=additional_args.lora_target_modules,
             )
@@ -262,8 +265,8 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
 
     if (
-        hasattr(model.config, "max_position_embeddings")
-        and model.config.max_position_embeddings < data_args.max_source_length
+            hasattr(model.config, "max_position_embeddings")
+            and model.config.max_position_embeddings < data_args.max_source_length
     ):
         if model_args.resize_position_embeddings is None:
             logger.warning(
@@ -361,7 +364,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-        
+
     if training_args.do_train:
         train_dataset = raw_datasets["train"]
         if data_args.max_train_samples is not None:
@@ -411,10 +414,15 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     if additional_args.do_cali:
         max_target_length = data_args.val_max_target_length
-        cali_dataset = raw_datasets["test"]
-        if data_args.max_predict_samples is not None:
-            max_predict_samples = min(len(cali_dataset), data_args.max_predict_samples)
-            cali_dataset = cali_dataset.select(range(max_predict_samples))
+        cali_dataset = raw_datasets["validation"]
+        logger.info(f"Calibrating dataset size: {len(cali_dataset)}")
+        if data_args.max_calibrate_samples is not None:
+            print(f"max_calibrate_samples  {data_args.max_calibrate_samples}")
+            num_samples = min(len(cali_dataset), data_args.max_calibrate_samples)
+            cali_dataset = cali_dataset.select(range(num_samples))
+        else:
+            num_samples = len(cali_dataset)
+        logger.info(f"Calibrating with {num_samples} samples")
         with training_args.main_process_first(desc="calibration dataset map pre-processing"):
             cali_dataset = cali_dataset.map(
                 preprocess_function,
@@ -450,22 +458,22 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         preds, labels = eval_preds
         if isinstance(preds, tuple):
             preds = preds[0]
-            
+
         try:
             decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
         except:
-            decoded_preds = tokenizer.batch_decode(np.where(preds != -100, preds, tokenizer.pad_token_id), 
+            decoded_preds = tokenizer.batch_decode(np.where(preds != -100, preds, tokenizer.pad_token_id),
                                                    skip_special_tokens=True)
         if data_args.ignore_pad_token_for_loss:
             # Replace -100 in the labels as we can't decode them.
             labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-            
+
         try:
             decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
         except:
-            decoded_labels = tokenizer.batch_decode(np.where(labels != -100, labels, tokenizer.pad_token_id), 
+            decoded_labels = tokenizer.batch_decode(np.where(labels != -100, labels, tokenizer.pad_token_id),
                                                     skip_special_tokens=True)
-        
+
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
 
@@ -483,7 +491,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
     )
     training_args.generation_num_beams = (
         data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
-    )    
+    )
     # adjust training arguments
     training_args = adjust_training_args(training_args, additional_args)
 
@@ -565,9 +573,9 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         # we make deep copies of the model, training_args, additional_args to avoid changing the original values
         # we adjust the threshold in the model and training_args (only model should be required).
         # We then create a list of trainers (which are wrappers around the model per threshold) which we will use to calibrate the method.
-
+        # sort the thresholds in descending order
+        thresholds = sorted(thresholds, reverse=True)
         for threshold in thresholds:
-
             config_copy = deepcopy(config)
             config_copy.exit_conf_threshold = threshold
             model = model_cls.from_pretrained(
@@ -583,6 +591,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             training_args_update = deepcopy(training_args)
             additional_args_update.exit_conf_threshold = threshold
             training_args_update = adjust_training_args(training_args_update, additional_args_update)
+
             trainer = trainer_cls(
                 model=model,
                 args=training_args_update,
@@ -592,26 +601,35 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 data_collator=data_collator,
                 compute_metrics=compute_metrics if training_args.predict_with_generate else None
             )
-
             trainers.append(trainer)
 
-        num_samples = data_args.max_calibrate_samples
+        logger.info("Done creating trainers per threshold.")
+
         delta = additional_args.calibrate_delta
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
+        # make list of deltas from 0 to 1 in steps of 0.1
+        deltas = np.arange(0, 1.1, 0.1)
+        exit_layers = []
+        L_vals = []
+        for delta in deltas:
+            logger.info(f"*** Calibrate with delta {delta}, epsilon {epsilon}, consistency type {consistency_type} ***")
 
-        logger.info("*** Calibrate ***")
-
-        lambda_min = calibrate(trainers,  thresholds, delta, epsilon, cali_dataset, tokenizer, consistency_type, num_samples, logger)
-
-        logger.info("*** End of Calibrate ***")
-        logger.info(f"Calibration done. Lambda_min: {lambda_min}")
-
-        output_calibration_file = os.path.join(training_args.output_dir, "calibration.json")
-        with open(output_calibration_file, "w") as f:
-            json.dump({"lambda_min": lambda_min, "delta": delta, "epsilon": epsilon, "thresholds": thresholds, "num_samples": num_samples, "consistency_type": consistency_type}, f)
-
-
+            lambda_min, early_metrics, full_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
+                                                                       cali_dataset, tokenizer, consistency_type,
+                                                                       num_samples, logger)
+            exit_layers.append(early_metrics['predict_block_avg'])
+            L_vals.append(L_val)
+            logger.info(f"*** End of Calibrate lambda min = {lambda_min} ***")
+        # Plot with matplotlib delta vs exit_layers save to a file name with timestamp
+        plt.figure(figsize=(10, 6))
+        plt.plot(deltas, exit_layers, marker='o')
+        plt.title('Delta vs Exit Layers')
+        plt.xlabel('Delta')
+        plt.ylabel('Exit Layers')
+        plt.grid(True)
+        datetime_string = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        plt.savefig(f"./plots/delta_vs_exit_layers_{consistency_type}_{datetime_string}.png")
 
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "summarization"}
     if data_args.dataset_name is not None:
@@ -638,19 +656,20 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
 if __name__ == "__main__":
     os.environ["WANDB_DISABLED"] = "true"
-    
+
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-    
+
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdditionalArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args, additional_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, additional_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args, additional_args = parser.parse_args_into_dataclasses()
-    
+
     if 't5' in model_args.model_name_or_path:
         if data_args.dataset_name in ["cnn_dailymail", "xsum", "samsum"]:
             model_cls = T5ForConditionalGeneration if not additional_args.deploy_scenario \
