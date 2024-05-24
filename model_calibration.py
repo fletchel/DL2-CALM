@@ -56,10 +56,10 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
             logger.info(f"Risk consistency rouge: {L_val_rouge}")
 
         p_j = hoeffding_p_value(L_val, delta, num_samples)
-        lambda_min = L_trainer.model.config.exit_conf_threshold
 
         if p_j > epsilon:
             return lambda_min, early_predict_out.metrics, fully_predict_out.metrics, L_val
+        lambda_min = L_trainer.model.config.exit_conf_threshold
 
 
     return lambda_min, early_predict_out.metrics, fully_predict_out.metrics, L_val

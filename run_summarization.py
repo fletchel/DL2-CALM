@@ -27,12 +27,14 @@ from typing import Optional
 from transformers.trainer_utils import PredictionOutput
 
 import logging
+import datetime
 import os
 import sys
 import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
 import torch
 from filelock import FileLock
+import matplotlib.pyplot as plt
 
 import datasets
 import evaluate
@@ -288,7 +290,6 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
-    print(f'do_cali: {additional_args.do_cali}')
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -608,12 +609,61 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         delta = additional_args.calibrate_delta
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
-        # make list of deltas from 0 to 1 in steps of 0.1
+
         deltas = np.arange(0, 1.1, 0.1)
-        exit_layers = []
+        exit_layer_metrics = []
         L_vals = []
+        lambdas = []
+        lambda_min = None
+
         for delta in deltas:
             logger.info(f"*** Calibrate with delta {delta}, epsilon {epsilon}, consistency type {consistency_type} ***")
+
+            if lambda_min:
+                index = thresholds.index(lambda_min)
+                lambda_min, early_metrics, L_val = calibrate(trainers[index-1:], thresholds, delta, epsilon,
+                                                                       cali_dataset, tokenizer, consistency_type,
+                                                                       num_samples, logger)
+            else:
+                lambda_min, early_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
+                                                                       cali_dataset, tokenizer, consistency_type,
+                                                                       num_samples, logger)
+
+            exit_layer_metrics.append(early_metrics)
+            L_vals.append(L_val)
+            lambdas.append(lambda_min)
+            logger.info(f"*** End of Calibrate: lambda min = {lambda_min} ***")
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(deltas, [dct['predict_block_avg'] for dct in exit_layer_metrics], marker='o')
+        plt.title('Delta vs Exit Layers')
+        plt.xlabel('Delta')
+        plt.ylabel('Exit Layers')
+        plt.grid(True)
+        datetime_string = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        plt.savefig(f"./plots/delta_vs_exit_layers_{consistency_type}_{datetime_string}.png")
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(deltas, L_vals, marker='o')
+        plt.title('Delta vs Dissimilarity')
+        plt.xlabel('Delta')
+        plt.ylabel('D(Y_early, Y_full) by RougeLsum')
+        plt.grid(True)
+        datetime_string = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        plt.savefig(f"./plots/delta_vs_dissimilarity_{consistency_type}_{datetime_string}.png")
+
+        results = {}
+        results["metrics"] = exit_layer_metrics
+        results['deltas'] = deltas
+        results['L_vals'] = L_vals
+        results['lambda_min'] = lambda_min
+        results['additional_args'] = additional_args
+        results['data_args'] = data_args
+        results['training_args'] = training_args_update
+        results['model_args'] = model_args
+        results['config'] = config
+        with open(f"./results/{consistency_type}_{datetime_string}.json", "w") as f:
+            json.dump(results, f)
 
             lambda_min, early_metrics, full_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
                                                                        cali_dataset, tokenizer, consistency_type,
