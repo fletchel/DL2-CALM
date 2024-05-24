@@ -53,7 +53,7 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
             R_early = 1 - rouge_metric.compute(predictions=decoder_output_early, references=references)["rougeLsum"]
             R_full = 1 - rouge_metric.compute(predictions=decoder_output_full, references=references)["rougeLsum"]
             L_val = max(0, R_early - R_full)
-            logger.info(f"Risk consistency rouge: {L_val_rouge}")
+            logger.info(f"Risk consistency rouge: {L_val}")
 
         p_j = hoeffding_p_value(L_val, delta, num_samples)
 
