@@ -26,12 +26,12 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
         early_metrics = L_early_val[2] 
 
         if consistency_type == 'textual':
-            L_val = 1-rouge_metric.compute(predictions=decoder_output_early, references=decoder_output_full)["rougeLsum"]
+            L_val = 1-rouge_metric.compute(predictions=decoder_output_early, references=decoder_output_full)["rougeL"]
 
         else:  # risk consistency
             
-            R_early = 1-rouge_metric.compute(predictions=decoder_output_early, references=references)["rougeLsum"]
-            R_full = 1-rouge_metric.compute(predictions=decoder_output_full, references=references)["rougeLsum"]
+            R_early = 1-rouge_metric.compute(predictions=decoder_output_early, references=references)["rougeL"]
+            R_full = 1-rouge_metric.compute(predictions=decoder_output_full, references=references)["rougeL"]
             L_val = max(0, R_early - R_full)
 
         p_j = hoeffding_p_value(L_val, delta, num_samples)
