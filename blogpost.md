@@ -1,9 +1,6 @@
-# Introduction
-```An analysis of the paper and its key components. Think about it as a nicely formatted review as you would see on OpenReview.net. It should contain one paragraph of related work as well.```
+# Confident Adaptive Language Modeling (CALM)
 
-## Confident Adaptive Language Modeling (CALM)
-
-Transformer-based autoregressive language models have been shown to achieve remarkable performance on open-ended language generation tasks. However, the large scale of these models limits their applicability in real-world scenarios. Early-exit approaches attempt to address this constraint by allowing the model to skip computations at later layers whenever the confidence of the current prediction is sufficient. Although methods like BERxiT have existed for encoder-based models, Confident Adaptive Language Modeling (CALM) is the first work focusing on autoregressive LLMs. Without significant loss in performance, this framework has been demonstrated to allow for up to x3 speedup in inference time. Additional improvements can be obtained using simple linear mapping to cast intermediate representations as final-layer representations.
+Transformer-based autoregressive language models have been shown to achieve remarkable performance on open-ended language generation tasks. However, the large scale of these models limits their applicability in real-world scenarios. Early-exit approaches attempt to address this constraint by allowing the model to skip computations at later layers whenever the confidence of the current prediction is sufficient. Although methods like BERxiT have previously been introduced for encoder-based models, Confident Adaptive Language Modeling (CALM) is the first work focusing on autoregressive LLMs. Without significant loss in performance, this framework has been demonstrated to allow for up to three times as fast inference time. Additional improvements can be obtained using simple linear mapping to cast intermediate representations as final-layer representations.
 
 The core idea of the *Confident Adaptive Language Modelling* framework is early-exit in the auto-regressive generation task, meaning that the next token $y_{t+1}$ can be chosen without traversing all $N$ layers of the decoder. This can be achieved by outputting the model's prediction $\text{argmax } p(y_{t+1} | d_t^i)$ at the first layer $i < N$  where its confidence is high enough. This requires estimating the confidence of prediction $c_t^i$ at a given layer $i$ and comparing it with a predefined confidence threshold $\lambda$. If $c_t^i > \lambda$, the model's prediction $\text{argmax } p(y_{t+1} | d_t^i)$ at the current layer can be used to generate the next token. Otherwise, the model must compute the next representation $d_t^{i+1}$.
 
@@ -22,7 +19,7 @@ In the experiments shown in CALM paper, **softmax response** consistently outper
 
 Besides proposing a new early-exiting mechanism via the confidence measures on intermediate decoder tokens as described above, the paper also presents a statistical procedure which allows the implementer to obtain probabilistic guarantees on the disparity between the generations of the full LLM and the early exiting LLM.
 
-To make this be more precise, let $S_{cal} = (P_i)_{i \in [n]}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t<m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
+To make this more precise, let $S_{cal} = (P_i)_{i \in [n]}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t<m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
 
 The key idea of early-exiting is to use some earlier decoder state $d_t^i$ with $i<L$ to obtain this vocabulary distribution. We use some earlier decoder state $d_t^i$ if its local exiting threshold $\lambda_t^i$ is exceeded by the local confidence score $c_t^i$. Several ways of obtaining this local confidence score have been discussed above.
 
@@ -81,7 +78,7 @@ Additionally, the impact of analysing the full history of representations genera
 ![CALM diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/01f461b7-7296-41d5-85c0-84c7dbba7441)
 
 
-Lastly, the original method employs a complex calibration procedure for finding an exit threshold $\lambda \in [0, 1]$ such that the early-exit predictions remain consistent with respect to the full model. However, the authors have not shown the experiments comparing the statistically-calibrated threshold with naive choice of $\lambda$. Hence, it may be possible to consider a simplified version of the early-exit framework with the calibration process omitted.
+Lastly, the original method employs a complex calibration procedure for finding an exit threshold $\lambda \in [0, 1]$ such that the early-exit predictions remain consistent with respect to the full model. However, the authors have not shown the experiments comparing the statistically-calibrated threshold with naive choice of $\lambda$. Hence, it may be possible to consider a simplified version of the early-exit framework with the calibration process omitted. Moreover, the statistical guarantees provided by the original paper are predicated on the calibration set being a representative sample of all possible inputs, which may not be the case in practice. Thus, these statistical guarantees may provide a false sense of security in the performance of the early-exit model.
 
 # Contribution
 
@@ -105,7 +102,12 @@ In addition, we perform experiments to investigate the improvement in performanc
 # Results
 ```Results of your work (link that part with the code in the jupyter notebook)```
 
-We are just in the process of getting results, so sadly we do not have results yet.
+First, we compare the performance of the **top-k token propagation** method with the original **softmax response** method. [INSERT TABLE]
+
+Next, we compare the performance of the **attention-based classifier** with the original **softmax response** method. [INSERT LUAN's FIGURE]
+
+Finally, we compare the performance of the **calibration method** with a naive confidence threshold selection method. [INSERT TABLE]
+
 
 # Conclusion
 ```Conclude```
