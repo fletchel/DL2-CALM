@@ -1,3 +1,4 @@
+
 """
 T5: https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py#L19
 """
@@ -38,6 +39,8 @@ from util import (
     split_tensors_by_mask, 
     restore_tensors_by_mask,
     get_skip_mask,
+    TransformerClassifier,
+    TransformerLinearClassifier
 )
 
 
@@ -484,7 +487,10 @@ class EffT5Stack(T5Stack):
             assert config.shallow_exit_layer > 0 and config.shallow_exit_layer < len(self.block)
 
         self.block_op = [0] * config.num_layers  # to calculate the average number of forward block layers
-        
+
+    def set_early_exit_threshold(self, threshold: float):
+        self.config.exit_conf_threshold = threshold
+
     def forward(
         self,
         input_ids=None,
@@ -780,12 +786,28 @@ class EffT5ForConditionalGeneration(T5ForConditionalGeneration):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         
-        if self.config.exit_conf_type == 'meta' or self.config.shallow2deep_conf_type:
+        if self.config.exit_conf_type == 'vanilla_classifier':
             self.cm_head = nn.Sequential(
-                nn.Linear(config.d_model, config.d_model, bias=False),
-                nn.ReLU(),
-                nn.Linear(config.d_model, 2, bias=False),
+                nn.Linear(config.d_model, 2, bias=True)
             )
+
+        elif self.config.exit_conf_type == 'transformer_linear_64':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_linear_512':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 512, 16)
+
+        elif self.config.exit_conf_type == 'MLP':
+            self.cm_head = nn.Sequential(nn.Linear(config.d_model, config.d_model),
+                                          nn.ReLU(), 
+                                          nn.Linear(config.d_model, 2))
+            
+        elif self.config.exit_conf_type == 'transformer_MLP_64':
+            self.cm_head = TransformerClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_MLP_512':
+            self.cm_head = TransformerClassifier(config.d_model, 512, 16)
+            
         else: self.cm_head = None
         
         
@@ -795,7 +817,10 @@ class EffT5ForConditionalGeneration(T5ForConditionalGeneration):
         else: self.layer_transformation = None
         
         self.deploy_time = None
-    
+
+
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,

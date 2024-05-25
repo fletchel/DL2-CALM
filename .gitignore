@@ -156,7 +156,7 @@ scripts
 save
 *.jsonl
 *.csv
-*.sh
+
 
 *.out
 *.job

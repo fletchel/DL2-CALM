@@ -105,6 +105,15 @@ class DataTrainingArguments:
             )
         },
     )
+    max_calibrate_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "For debugging purposes or quicker training, truncate the number of calibration examples to this "
+                "value if set."
+            )
+        },
+    )
     max_predict_samples: Optional[int] = field(
         default=None,
         metadata={

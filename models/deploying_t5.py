@@ -1,3 +1,4 @@
+
 """
 T5: https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py#L19
 """
@@ -43,7 +44,9 @@ from transformers.utils import logging
 from util import (
     get_skip_mask,
     BetaMixture1D,
-) 
+    TransformerClassifier,
+    TransformerLinearClassifier
+)
 
 logger = logging.get_logger(__name__)
 __HEAD_MASK_WARNING_MSG = """
@@ -425,7 +428,8 @@ class DeployT5Block(T5Block):
         parallel_mask=False,
         stack_hidden_states=None,
     ):
-    
+
+        #print(self.config.exit_conf_threshold)
         if past_key_value is not None:
             if not self.is_decoder:
                 logger.warning("`past_key_values` is passed to the encoder. Please make sure this is intended.")
@@ -725,6 +729,7 @@ class DeployT5Stack(T5Stack):
         return_dict=None,
         lm_head=None,
         cm_head=None,
+        decoder_hidden_states=None
     ):
         r""" 
         We have implemented the following inference strategy:
@@ -736,6 +741,7 @@ class DeployT5Stack(T5Stack):
             While a few early layers are defined as 'Shallow' decoder, the entire network including Shallow is defined as 'Deep' decoder.
             Each token can skip the Deep decoder path if confidence at Shallow decoder is higher than threshold.
         """
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         use_cache = use_cache if use_cache is not None else self.config.use_cache
@@ -807,11 +813,12 @@ class DeployT5Stack(T5Stack):
                 )
                 use_cache = False
 
+        num_layers = len(self.block)
         # Prepare head mask if needed
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
         cross_attn_head_mask = self.get_head_mask(cross_attn_head_mask, self.config.num_layers)
         present_key_value_states = [] if use_cache else None
-        all_hidden_states = None
+        all_hidden_states = torch.empty((num_layers, self.config.d_model), device=inputs_embeds.device)
         all_attentions = None
         all_cross_attentions = None
         position_bias = None
@@ -941,8 +948,6 @@ class DeployT5Stack(T5Stack):
                         else:
                             lm_logits = lm_head(temp_hidden_)
 
-                        #lm_logits[..., 0] = -1000 # exclude pad token
-
                         sorted_logits = False
                         if self.top_propagation is not None and top_k_tokens is None:
                             # top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation,
@@ -951,18 +956,33 @@ class DeployT5Stack(T5Stack):
                             top_k_tokens, lm_logits = top_k_results.indices, top_k_results.values
                             top_k_tokens = top_k_tokens.squeeze(0)
                             lm_logits = lm_logits.unsqueeze(0)
-                            #lm_logits = lm_logits[..., top_k_tokens]
+                            # lm_logits = lm_logits[..., top_k_tokens]
                             top_k_weight = lm_head.weight[top_k_tokens]
                             sorted_logits = True
 
-                        skip_mask = get_skip_mask(
-                            lm_logits,
-                            _hidden_states,
-                            cm_head,
-                            config=self.config,
-                            pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
-                            sorted_logits=sorted_logits
-                        )
+                        #lm_logits[..., 0] = -1000 # exclude pad token
+                        if 'transformer' in self.config.exit_conf_type:
+
+                            all_hidden_states[i] = hidden_states.squeeze(0)
+                            cur_full_states = torch.cat([self.final_layer_norm(decoder_hidden_states[i].unsqueeze(0)), _hidden_states], dim=1)
+                            skip_mask = get_skip_mask(
+                                lm_logits,
+                                _hidden_states,
+                                cm_head,
+                                config=self.config,
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
+                                all_decoder_states = cur_full_states
+                            )
+
+                        else:
+                            skip_mask = get_skip_mask(
+                                lm_logits,
+                                _hidden_states,
+                                cm_head,
+                                config=self.config,
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
+                                sorted_logits=sorted_logits
+                            )
 
                         if skip_mask and top_k_tokens is not None:
                             lm_logits = torch.scatter(
@@ -1064,7 +1084,6 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
     def __init__(self, config):
         super().__init__(config)
         self.model_dim = config.d_model
-
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
 
         encoder_config = copy.deepcopy(config)
@@ -1082,14 +1101,30 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.decoder.lm_head = self.lm_head
-        if self.config.exit_conf_type == 'meta' or self.config.shallow2deep_conf_type == "meta":
+
+        if self.config.exit_conf_type == 'vanilla_classifier':
             self.cm_head = nn.Sequential(
-                nn.Linear(config.d_model, config.d_model, bias=True),
-                nn.ReLU(),
-                nn.Linear(config.d_model, 2, bias=True),
+                nn.Linear(config.d_model, 2, bias=True)
             )
-        else:
-            self.cm_head = None
+
+        elif self.config.exit_conf_type == 'transformer_linear_64':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_linear_512':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 512, 16)
+
+        elif self.config.exit_conf_type == 'MLP':
+            self.cm_head = nn.Sequential(nn.Linear(config.d_model, config.d_model),
+                                          nn.ReLU(),
+                                          nn.Linear(config.d_model, 2))
+
+        elif self.config.exit_conf_type == 'transformer_MLP_64':
+            self.cm_head = TransformerClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_MLP_512':
+            self.cm_head = TransformerClassifier(config.d_model, 512, 16)
+
+        else: self.cm_head = None
 
         # RollBack policy
         self.rollback_num = 0
@@ -1100,7 +1135,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         self.bmm_update_max_iter = 300
 
         self.runs = 0
-        
+
         self.deploy_time = {
             'time_encoder_forward': datetime.timedelta(),
             'time_decoder_forward': datetime.timedelta(),
@@ -1123,6 +1158,9 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             min_exit_layer = self.decoder.exit_min_layer or 0
             self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, config.num_layers)}
 
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
+
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -1141,6 +1179,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        decoder_hidden_states = None
     ) -> Union[Tuple[torch.FloatTensor], Seq2SeqLMOutput]:
         r"""
         DeployT5ForConditionalGeneration class is for a deployment scenario,
@@ -1155,7 +1194,8 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         encoder_outputs, decoder_outputs = self.forward_impl(input_ids, attention_mask, decoder_input_ids, decoder_attention_mask,
                                                             head_mask, decoder_head_mask, cross_attn_head_mask, encoder_outputs,
                                                             past_key_values, inputs_embeds, decoder_inputs_embeds, labels, use_cache,
-                                                            output_attentions, output_hidden_states, return_dict)
+                                                            output_attentions, output_hidden_states, return_dict, decoder_hidden_states)
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         if self.decoder.lm_logits is None:  # token has not skipped
@@ -1223,6 +1263,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        decoder_hidden_states = None
     ):
     
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
@@ -1287,7 +1328,9 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             return_dict=return_dict,
             lm_head=self.lm_head,
             cm_head=self.cm_head,
+            decoder_hidden_states=decoder_hidden_states
         )
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         self.deploy_time['time_decoder_forward'] += (datetime.datetime.now() - start)
         for k, v in self.decoder.deploy_time.items():
@@ -1357,16 +1400,17 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         )
 
         # init attention / hidden states / scores tuples
+        num_layers = self.config.num_decoder_layers
         scores = () if (return_dict_in_generate and output_scores) else None
         decoder_attentions = () if (return_dict_in_generate and output_attentions) else None
         cross_attentions = () if (return_dict_in_generate and output_attentions) else None
-        decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
-
+        #decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
+        decoder_hidden_states = torch.empty((num_layers, 0, self.model_dim), device=input_ids.device)
         # if model is an encoder-decoder, retrieve encoder attention weights and hidden states
         if return_dict_in_generate and self.config.is_encoder_decoder:
             encoder_attentions = model_kwargs["encoder_outputs"].get("attentions") if output_attentions else None
             encoder_hidden_states = (
-                model_kwargs["encoder_outputs"].get("hidden_states") if output_hidden_states else None
+                model_kwargs["encoder_outputs"].get("hidden_statses") if output_hidden_states else None
             )
 
         # keep track of which sequences are already finished
@@ -1398,8 +1442,8 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                 return_dict=True,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
-            )       
-
+                decoder_hidden_states=decoder_hidden_states
+            )
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
             
@@ -1465,13 +1509,14 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                     if self.config.is_encoder_decoder:
                         cross_attentions += (outputs.cross_attentions,)
 
-                if output_hidden_states:
+                if True:
                     decoder_hidden_states += (
                         (outputs.decoder_hidden_states,)
                         if self.config.is_encoder_decoder
                         else (outputs.hidden_states,)
                     )
 
+            decoder_hidden_states = torch.cat([decoder_hidden_states, outputs.decoder_hidden_states.unsqueeze(1)], dim=1)
             # argmax
             next_tokens = torch.argmax(next_tokens_scores, dim=-1)
 

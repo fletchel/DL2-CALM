@@ -27,21 +27,21 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import Seq2SeqTrainer
+from transformers import Seq2SeqTrainer, Trainer
 from transformers.utils import is_torch_tpu_available
 from transformers.deepspeed import deepspeed_init, is_deepspeed_zero3_enabled
 from transformers.debug_utils import DebugOption
 from transformers.trainer_utils import (
-    EvalLoopOutput, 
+    EvalLoopOutput,
     has_length,
-    EvalPrediction, 
+    EvalPrediction,
     denumpify_detensorize,
     speed_metrics,
 )
 from transformers.trainer_pt_utils import (
-    find_batch_size, 
-    nested_concat, 
-    nested_numpify, 
+    find_batch_size,
+    nested_concat,
+    nested_numpify,
     nested_truncate,
     IterableDatasetShard,
 )
@@ -52,13 +52,57 @@ from models.deploying_longt5 import DeployLongT5ForConditionalGeneration
 class SumTrainer(Seq2SeqTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-    def evaluate(
+
+    def _pad_across_processes(self, tensor, pad_index=-100):
+        if not hasattr(self.args, 'pad_to_multiple_of') or not self.args.pad_to_multiple_of:
+            return tensor
+
+        max_length = self.args.pad_to_multiple_of
+        if max_length is not None and tensor.shape[-1] % max_length != 0:
+            length = tensor.shape[-1]
+            pad_length = (length // max_length + 1) * max_length - length
+            tensor = torch.nn.functional.pad(tensor, (0, pad_length), value=pad_index)
+        return tensor
+
+    def predict(
         self,
-        eval_dataset: Optional[Dataset] = None,
+        test_dataset: Dataset,
         ignore_keys: Optional[List[str]] = None,
-        metric_key_prefix: str = "eval",
+        metric_key_prefix: str = "test",
         **gen_kwargs,
+    ) -> "PredictionOutput":
+
+        predictions, label_ids, predict_metrics = super().predict(test_dataset, ignore_keys, metric_key_prefix, **gen_kwargs)
+        # average block layers
+        if self.model.decoder.use_shallow_deep:
+            total, deep = self.model.decoder.block_op[0], self.model.decoder.block_op[
+                self.model.decoder.shallow_exit_layer]
+            shallow = total - deep
+
+            # self.model.rollback_num: we should consider redundant operations due to rollback
+            block_op_metric = {'{}_block_avg'.format(metric_key_prefix): (deep * len(self.model.decoder.block_op) \
+                                                                          + (
+                                                                                      shallow + self.model.rollback_num) * self.model.decoder.shallow_exit_layer) / (
+                                                                                     total + 1e-10)}
+            # 'block_num' contains the number of token for [shallow, deep, parallel, rollback]
+            block_op_metric['{}_block_num'.format(metric_key_prefix)] = str(
+                [shallow, deep, self.model.decoder.parallel_tokens_shallow, self.model.decoder.parallel_tokens_deep,
+                 self.model.rollback_num])
+        else:
+            block_op_metric = {'{}_block_avg'.format(metric_key_prefix): sum(self.model.decoder.block_op) / (
+                        self.model.decoder.block_op[0] + 1e-10), }
+        predict_metrics.update(block_op_metric)
+
+
+        return predictions, label_ids, predict_metrics
+
+
+    def evaluate(
+            self,
+            eval_dataset: Optional[Dataset] = None,
+            ignore_keys: Optional[List[str]] = None,
+            metric_key_prefix: str = "eval",
+            **gen_kwargs,
     ) -> Dict[str, float]:
         """
         Run evaluation and returns metrics.
@@ -112,7 +156,7 @@ class SumTrainer(Seq2SeqTrainer):
             ignore_keys=ignore_keys,
             metric_key_prefix=metric_key_prefix,
         )
-            
+
         total_batch_size = self.args.eval_batch_size * self.args.world_size
         if f"{metric_key_prefix}_jit_compilation_time" in output.metrics:
             start_time += output.metrics[f"{metric_key_prefix}_jit_compilation_time"]
@@ -127,24 +171,32 @@ class SumTrainer(Seq2SeqTrainer):
 
         # average block layers
         if self.model.decoder.use_shallow_deep:
-            total, deep = self.model.decoder.block_op[0], self.model.decoder.block_op[self.model.decoder.shallow_exit_layer]
+            total, deep = self.model.decoder.block_op[0], self.model.decoder.block_op[
+                self.model.decoder.shallow_exit_layer]
             shallow = total - deep
 
             # self.model.rollback_num: we should consider redundant operations due to rollback
             block_op_metric = {'{}_block_avg'.format(metric_key_prefix): (deep * len(self.model.decoder.block_op) \
-                + (shallow + self.model.rollback_num) * self.model.decoder.shallow_exit_layer) / (total + 1e-10)}
+                                                                          + (
+                                                                                      shallow + self.model.rollback_num) * self.model.decoder.shallow_exit_layer) / (
+                                                                                     total + 1e-10)}
             # 'block_num' contains the number of token for [shallow, deep, parallel, rollback]
-            block_op_metric['{}_block_num'.format(metric_key_prefix)] = str([shallow, deep, self.model.decoder.parallel_tokens_shallow, self.model.decoder.parallel_tokens_deep, self.model.rollback_num])
+            block_op_metric['{}_block_num'.format(metric_key_prefix)] = str(
+                [shallow, deep, self.model.decoder.parallel_tokens_shallow, self.model.decoder.parallel_tokens_deep,
+                 self.model.rollback_num])
         else:
-            block_op_metric = {'{}_block_avg'.format(metric_key_prefix): sum(self.model.decoder.block_op) / (self.model.decoder.block_op[0] + 1e-10),}
+            block_op_metric = {'{}_block_avg'.format(metric_key_prefix): sum(self.model.decoder.block_op) / (
+                        self.model.decoder.block_op[0] + 1e-10), }
         output.metrics.update(block_op_metric)
 
         # deploy time
         if self.model.deploy_time is not None:
             deploy_time = {}
             for k, v in self.model.deploy_time.items():
-                if type(v) != list: deploy_time[k] = str(v).split('.')[0]
-                else: deploy_time[k] = str([str(_v).split('.')[0] for _v in v])
+                if type(v) != list:
+                    deploy_time[k] = str(v).split('.')[0]
+                else:
+                    deploy_time[k] = str([str(_v).split('.')[0] for _v in v])
             output.metrics.update(deploy_time)
 
         if self.model.conf_time_per_layer is not None:
@@ -154,7 +206,7 @@ class SumTrainer(Seq2SeqTrainer):
                     continue
                 conf_time_per_layer["conf_time_layer_{}".format(l)] = t.total_seconds() / self.model.decoder.block_op[l - 1]
             output.metrics.update(conf_time_per_layer)
-                
+
         self.log(output.metrics)
 
         if DebugOption.TPU_METRICS_DEBUG in self.args.debug:
@@ -168,12 +220,12 @@ class SumTrainer(Seq2SeqTrainer):
         return output.metrics
 
     def evaluation_loop(
-        self,
-        dataloader: DataLoader,
-        description: str,
-        prediction_loss_only: Optional[bool] = None,
-        ignore_keys: Optional[List[str]] = None,
-        metric_key_prefix: str = "eval",
+            self,
+            dataloader: DataLoader,
+            description: str,
+            prediction_loss_only: Optional[bool] = None,
+            ignore_keys: Optional[List[str]] = None,
+            metric_key_prefix: str = "eval",
     ) -> EvalLoopOutput:
         """
         Prediction/evaluation loop, shared by `Trainer.evaluate()` and `Trainer.predict()`.
@@ -196,6 +248,7 @@ class SumTrainer(Seq2SeqTrainer):
             self.deepspeed = deepspeed_engine
 
         model = self._wrap_model(self.model, training=False, dataloader=dataloader)
+
 
         # if full fp16 or bf16 eval is wanted and this ``evaluation`` or ``predict`` isn't called
         # while ``train`` is running, cast it to the right dtype first and then put on device
@@ -372,11 +425,11 @@ class SumTrainer(Seq2SeqTrainer):
         return EvalLoopOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics, num_samples=num_samples)
 
     def prediction_step(
-        self,
-        model: nn.Module,
-        inputs: Dict[str, Union[torch.Tensor, Any]],
-        prediction_loss_only: bool,
-        ignore_keys: Optional[List[str]] = None,
+            self,
+            model: nn.Module,
+            inputs: Dict[str, Union[torch.Tensor, Any]],
+            prediction_loss_only: bool,
+            ignore_keys: Optional[List[str]] = None,
     ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
         """
         Perform an evaluation step on `model` using `inputs`.
@@ -413,13 +466,13 @@ class SumTrainer(Seq2SeqTrainer):
         # users from preparing a dataset with `decoder_input_ids`.
         inputs = {k: v for k, v in inputs.items() if k != "decoder_input_ids"}
         # generated_tokens = self.model.generate(**inputs, **gen_kwargs)
-        
+
         gen_model = self.model.base_model if self.model.config.use_lora else self.model
         generated_tokens = gen_model.generate(
             inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
             **gen_kwargs)  # Decoder input shape: (batch_size, 1)
-        
+
         # Temporary hack to ensure the generation config is not initialized for each iteration of the evaluation loop
         # TODO: remove this hack when the legacy code that initializes generation_config from a model config is
         # removed in https://github.com/huggingface/transformers/blob/98d88b23f54e5a23e741833f1e973fdf600cc2c5/src/transformers/generation/utils.py#L1183
@@ -429,11 +482,12 @@ class SumTrainer(Seq2SeqTrainer):
         if gen_kwargs.get("max_length") is not None and generated_tokens.shape[-1] < gen_kwargs["max_length"]:
             generated_tokens = self._pad_tensors_to_max_len(generated_tokens, gen_kwargs["max_length"])
         elif gen_kwargs.get("max_new_tokens") is not None and generated_tokens.shape[-1] < (
-            gen_kwargs["max_new_tokens"] + 1
+                gen_kwargs["max_new_tokens"] + 1
         ):
             generated_tokens = self._pad_tensors_to_max_len(generated_tokens, gen_kwargs["max_new_tokens"] + 1)
 
-        if isinstance(self.model, DeployT5ForConditionalGeneration) or isinstance(self.model, DeployLongT5ForConditionalGeneration):
+        if isinstance(self.model, DeployT5ForConditionalGeneration) or isinstance(self.model,
+                                                                                  DeployLongT5ForConditionalGeneration):
             loss = None
         else:
             with torch.no_grad():
@@ -455,10 +509,10 @@ class SumTrainer(Seq2SeqTrainer):
             if gen_kwargs.get("max_length") is not None and labels.shape[-1] < gen_kwargs["max_length"]:
                 labels = self._pad_tensors_to_max_len(labels, gen_kwargs["max_length"])
             elif gen_kwargs.get("max_new_tokens") is not None and labels.shape[-1] < (
-                gen_kwargs["max_new_tokens"] + 1
+                    gen_kwargs["max_new_tokens"] + 1
             ):
                 labels = self._pad_tensors_to_max_len(labels, (gen_kwargs["max_new_tokens"] + 1))
         else:
             labels = None
-            
+
         return (loss, generated_tokens, labels)
