@@ -11,9 +11,9 @@ python run_summarization.py \
     --predict_with_generate True \
     --source_prefix "summarize: " \
     --max_predict_samples 500 \
-    --max_calibrate_samples 20 \
+    --max_calibrate_samples 10 \
     --use_early_exit True \
-    --exit_conf_type softmax \
+    --exit_conf_type linear \
     --exit_min_layer 1 \
     --calibrate_delta .5 \
     --calibrate_epsilon 0.05 \
