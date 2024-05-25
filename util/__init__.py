@@ -17,3 +17,8 @@ from .skip_conf import (
 from .bmm import (
     BetaMixture1D,
 )
+
+from .conf_classifier import (
+    TransformerClassifier,
+    TransformerLinearClassifier
+)

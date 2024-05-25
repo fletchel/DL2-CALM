@@ -27,9 +27,17 @@ def meta_confidence(
 ):
     assert hidden_states is not None
     assert classifier is not None
-    
+
     preds = classifier(hidden_states)
     probs = torch.softmax(preds, dim=-1)
+    return probs[..., 1].squeeze()
+
+def transformer_confidence(hidden_states, classifier):
+
+
+    preds = classifier(hidden_states.transpose(0, 1)).transpose(0, 1)
+    probs = torch.softmax(preds, dim=-1)
+
     return probs[..., 1].squeeze()
 
 
@@ -37,8 +45,21 @@ def get_confidence_class(key):
 
     _conf_class_map = {
         'softmax': softmax_confidence,
-        'meta': meta_confidence,
+        'linear': meta_confidence,
+        'transformer_MLP': meta_confidence
     }
+
+    if key == 'softmax':
+
+        return softmax_confidence
+
+    elif 'transformer' in key:
+
+        return transformer_confidence
+
+    else:
+
+        return meta_confidence
 
     if key in _conf_class_map:
         return _conf_class_map[key]
@@ -54,6 +75,7 @@ def get_skip_mask(
     pos_time: int = 1,
     adapt_threshold: float = None,
     return_conf=False,
+    all_decoder_states = None
 ):
 
     assert config.exit_conf_type is not None or config.shallow2deep_conf_type is not None
@@ -72,13 +94,28 @@ def get_skip_mask(
         threshold = config.shallow2deep_conf_threshold if adapt_threshold is None else adapt_threshold
 
     conf_measure = get_confidence_class(key=key)    
-    conf = conf_measure(
-        logits=logits, 
-        hidden_states=hidden_states, 
-        classifier=classifier,
-    )
+
+    if all_decoder_states is not None:
+
+        conf = conf_measure(
+            hidden_states=all_decoder_states,
+            classifier=classifier
+        )
+
+        if all_decoder_states.shape[1] > 1:
+
+            conf = conf[-1]
+
+    else:
+        conf = conf_measure(
+            logits=logits,
+            hidden_states=hidden_states,
+            classifier=classifier,
+        )
+
     mask = torch.where(conf <= threshold, 0., 1.).bool()
-    
+
+
     if not return_conf:
         return mask.item()  # False (0) and True (1) denote keep and exit
     else:
