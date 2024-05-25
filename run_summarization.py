@@ -308,6 +308,11 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         if "test" not in raw_datasets:
             raise ValueError("--do_predict requires a test dataset")
         column_names = raw_datasets["test"].column_names
+    elif additional_args.do_cali_with_plot:
+        # Calibration uses the test dataset
+        if "test" not in raw_datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        column_names = raw_datasets["test"].column_names
     else:
         logger.info("There is nothing to do. Please pass `do_train`, `do_eval`, 'do_cali' and/or `do_predict`.")
         return
@@ -415,6 +420,27 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             )
 
     if additional_args.do_cali:
+        max_target_length = data_args.val_max_target_length
+        cali_dataset = raw_datasets["validation"]
+        logger.info(f"Calibrating dataset size: {len(cali_dataset)}")
+        if data_args.max_calibrate_samples is not None:
+            print(f"max_calibrate_samples  {data_args.max_calibrate_samples}")
+            num_samples = min(len(cali_dataset), data_args.max_calibrate_samples)
+            cali_dataset = cali_dataset.select(range(num_samples))
+        else:
+            num_samples = len(cali_dataset)
+        logger.info(f"Calibrating with {num_samples} samples")
+        with training_args.main_process_first(desc="calibration dataset map pre-processing"):
+            cali_dataset = cali_dataset.map(
+                preprocess_function,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on calibration dataset",
+            )
+
+    if additional_args.do_cali_with_plot:
         max_target_length = data_args.val_max_target_length
         cali_dataset = raw_datasets["validation"]
         logger.info(f"Calibrating dataset size: {len(cali_dataset)}")
@@ -576,16 +602,11 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 with open(output_prediction_file, "w") as writer:
                     writer.write("\n".join(predictions))
 
-    # Calibration
+
     if additional_args.do_cali:
         thresholds = additional_args.thresholds
         trainers = []
 
-        # for each threshold in the thresholds list, we create a new trainer with the threshold set to the current threshold value
-        # we make deep copies of the model, training_args, additional_args to avoid changing the original values
-        # we adjust the threshold in the model and training_args (only model should be required).
-        # We then create a list of trainers (which are wrappers around the model per threshold) which we will use to calibrate the method.
-        # sort the thresholds in descending order
         thresholds = sorted(thresholds, reverse=True)
         for threshold in thresholds:
             config_copy = deepcopy(config)
@@ -598,7 +619,8 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 revision=model_args.model_revision,
                 use_auth_token=True if model_args.use_auth_token else None,
             )
-            # make deep copy of training_args
+
+
             additional_args_update = deepcopy(additional_args)
             training_args_update = deepcopy(training_args)
             additional_args_update.exit_conf_threshold = threshold
@@ -615,9 +637,6 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             )
             trainers.append(trainer)
 
-        logger.info("Done creating trainers per threshold.")
-
-        delta = additional_args.calibrate_delta
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
         exit_conf_type = additional_args.exit_conf_type
@@ -625,9 +644,14 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         exit_layer_metrics = []
         L_vals = []
         lambdas = []
+        lambda_min = None
 
         for delta in deltas:
             logger.info(f"*** Calibrate with delta {delta}, epsilon {epsilon}, consistency type {consistency_type} ***")
+
+            lambda_min, early_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
+                                                                    cali_dataset, tokenizer, consistency_type,
+                                                                    num_samples, logger)
             lambda_min, early_metrics, fully_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
                                                              cali_dataset, tokenizer, consistency_type,
                                                              num_samples, logger)
@@ -636,13 +660,11 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             exit_layer_metrics.append(early_metrics)
             L_vals.append(L_val)
             lambdas.append(lambda_min)
-            logger.info(f"*** End of Calibrate: lambda min = {lambda_min} ***")
+            logger.info(f"*** End of Calibrate: lambda_min = {lambda_min} ***")
 
         datetime_string = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots",
-                    exist_ok=True)
-        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data",
-                    exist_ok=True)
+        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots", exist_ok=True)
+        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data", exist_ok=True)
 
         plt.figure(figsize=(10, 6))
         plt.plot(deltas, [dct['predict_block_avg'] for dct in exit_layer_metrics], marker='o')
@@ -650,15 +672,23 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         plt.xlabel('Delta')
         plt.ylabel('Exit Layers')
         plt.grid(True)
-        plt.savefig(
-            f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_exit_layers.png")
+        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_exit_layers.png")
 
         plt.figure(figsize=(10, 6))
         plt.plot(deltas, L_vals, marker='o')
         plt.title('Delta vs Dissimilarity')
         plt.xlabel('Delta')
-        plt.ylabel('D(Y_early, Y_full) by RougeLsum')
+        plt.ylabel('R_early-R_full')
         plt.grid(True)
+        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_dissimilarity.png")
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(deltas, lambdas, marker='o')
+        plt.title('Delta vs lambda_min')
+        plt.xlabel('Delta')
+        plt.ylabel('lambda_min')
+        plt.grid(True)
+        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_lambdas.png")
         plt.savefig(
             f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_dissimilarity.png")
 
@@ -680,9 +710,17 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         with open(
                 f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/hyperparams_and_data.json",
                 "w") as f:
+        results['lambdas'] = lambdas
+
+        with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/results.json", "w") as f:
             json.dump(results, f)
 
 
+        config_details = {}
+        config_details['model_details'] = model.config.to_dict()
+        config_details['additional_args'] = additional_args
+        with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/config_details.json", "w") as f:
+            json.dump(config_details, f)
 
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "summarization"}
     if data_args.dataset_name is not None:
