@@ -109,7 +109,9 @@ class AdditionalArguments:
     do_cali: Optional[bool] = field(
         default=False, metadata={"help": ("Calibrate the model for confidence measure.")}
     )
-
+    do_cali_with_plot: Optional[bool] = field(
+        default=False, metadata={"help": ("Calibrate the model for confidence measure with plot.")}
+    )
     calibrate_num_samples : Optional[int] = field(
         default=100, metadata={"help": ("Number of samples for calibration")}
     )

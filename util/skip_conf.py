@@ -30,7 +30,7 @@ def meta_confidence(
 
     preds = classifier(hidden_states)
     probs = torch.softmax(preds, dim=-1)
-    return probs[..., 1].squeeze()
+    return probs[..., 0].squeeze()
 
 def transformer_confidence(hidden_states, classifier):
 
@@ -38,7 +38,7 @@ def transformer_confidence(hidden_states, classifier):
     preds = classifier(hidden_states.transpose(0, 1)).transpose(0, 1)
     probs = torch.softmax(preds, dim=-1)
 
-    return probs[..., 1].squeeze()
+    return probs[..., 0].squeeze()
 
 
 def get_confidence_class(key):
