@@ -652,9 +652,6 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             lambda_min, early_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
                                                                     cali_dataset, tokenizer, consistency_type,
                                                                     num_samples, logger)
-            lambda_min, early_metrics, fully_metrics, L_val = calibrate(trainers, thresholds, delta, epsilon,
-                                                             cali_dataset, tokenizer, consistency_type,
-                                                             num_samples, logger)
 
 
             exit_layer_metrics.append(early_metrics)
@@ -663,8 +660,8 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
             logger.info(f"*** End of Calibrate: lambda_min = {lambda_min} ***")
 
         datetime_string = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots", exist_ok=True)
-        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data", exist_ok=True)
+        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/plots", exist_ok=True)
+        os.makedirs(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/data", exist_ok=True)
 
         plt.figure(figsize=(10, 6))
         plt.plot(deltas, [dct['predict_block_avg'] for dct in exit_layer_metrics], marker='o')
@@ -672,7 +669,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         plt.xlabel('Delta')
         plt.ylabel('Exit Layers')
         plt.grid(True)
-        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_exit_layers.png")
+        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/plots/delta_vs_exit_layers.png")
 
         plt.figure(figsize=(10, 6))
         plt.plot(deltas, L_vals, marker='o')
@@ -680,7 +677,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         plt.xlabel('Delta')
         plt.ylabel('R_early-R_full')
         plt.grid(True)
-        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_dissimilarity.png")
+        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/plots/delta_vs_dissimilarity.png")
 
         plt.figure(figsize=(10, 6))
         plt.plot(deltas, lambdas, marker='o')
@@ -688,9 +685,9 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         plt.xlabel('Delta')
         plt.ylabel('lambda_min')
         plt.grid(True)
-        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_lambdas.png")
+        plt.savefig(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/plots/delta_vs_lambdas.png")
         plt.savefig(
-            f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_dissimilarity.png")
+            f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/plots/delta_vs_dissimilarity.png")
 
         plt.figure(figsize=(10, 6))
         plt.plot(deltas, lambdas, marker='o')
@@ -699,7 +696,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         plt.ylabel('lambda_min')
         plt.grid(True)
         plt.savefig(
-            f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/plots/delta_vs_lambdas.png")
+            f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/plots/delta_vs_lambdas.png")
 
         results = {}
         results["metrics"] = exit_layer_metrics
@@ -707,19 +704,15 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         results['L_vals'] = L_vals
         results['lambdas'] = lambdas
         results['config'] = model.config.to_dict()
-        with open(
-                f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/hyperparams_and_data.json",
-                "w") as f:
-        results['lambdas'] = lambdas
 
-        with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/results.json", "w") as f:
+        with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/data/results.json", "w") as f:
             json.dump(results, f)
 
 
         config_details = {}
         config_details['model_details'] = model.config.to_dict()
         config_details['additional_args'] = additional_args
-        with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/config_details.json", "w") as f:
+        with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/data/config_details.json", "w") as f:
             json.dump(config_details, f)
 
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "summarization"}

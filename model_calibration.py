@@ -45,4 +45,4 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
         lambda_min = L_trainer.model.config.exit_conf_threshold
 
 
-    return lambda_min, early_predict_out[2], L_val
+    return lambda_min, early_predict_out.metrics, L_val
