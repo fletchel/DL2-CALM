@@ -153,7 +153,7 @@ def compute_cm_head_loss(config, lm_head, cm_head, model_dim, all_hidden_states=
 
         if 'transformer' in config.exit_conf_type:
 
-          cur_preds = cm_head(h).reshape(-1, 2)
+          cur_preds = cm_head(h.transpose(0, 1)).transpose(0, 1).reshape(-1, 2)
           meta_preds = torch.cat([meta_preds, cur_preds], dim=0)
         else:
           meta_preds = torch.cat([meta_preds, cm_head(h.reshape(-1, h.size(-1)))], dim=0)  # (bsz * len, 2)

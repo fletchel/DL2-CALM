@@ -103,7 +103,7 @@ def get_skip_mask(
         )
 
         if all_decoder_states.shape[1] > 1:
-
+            
             conf = conf[-1]
 
     else:
