@@ -1,0 +1,14 @@
+python run_summarization.py \
+    --model_name_or_path ./save/finetuned_baseline_cnndm_t5_small/ \
+    --do_eval \
+    --dataset_name cnn_dailymail \
+    --dataset_config_name "3.0.0" \
+    --output_dir ./save/static_layer_PLACEHOLDER/ \
+    --per_device_eval_batch_size 1 \
+    --deploy_scenario True \
+    --use_synchronize True \
+    --overwrite_output_dir \
+    --predict_with_generate \
+    --source_prefix "summarize: " \
+    --static_exit_layer PLACEHOLDER \
+    --max_eval_samples 1000

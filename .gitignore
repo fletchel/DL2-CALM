@@ -151,7 +151,6 @@ wandb/
 jupyter_notebooks
 .ipynb_checkpoints
 
-scripts
 save
 *.jsonl
 *.csv
