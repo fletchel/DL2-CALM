@@ -178,8 +178,6 @@ For the calibration, we ran the calibration as described in the paper on the fol
 For each of these, we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
 We also used candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
 
-## Top-k propagation
-
 ## Classifier training
 
 We implemented four types of confidence classifier. These were as follows
@@ -201,7 +199,7 @@ We trained each of these for approx. 0.25 epochs each (due to compute constraint
 
 # Results
 
-## Top-k propagation 
+## Top-k token propagation 
 First, we compare the performance of the **top-k token propagation** with the original **softmax response** method for different numbers of propagated tokens and confidence thresholds. For both $\lambda = 0.5$ and $\lambda = 0.9$, using only 2000 most probable tokens to compute confidence allowed for an increase in the number of generated tokens per second at a slight cost to the $\text{ROUGE-L}_\text{sum}$ metric. Overall, it is possible to observe the trends we have expected in the **Contribution** section &mdash; the benefits of using our method become more noticeable as greater number of layers needs needs to be traversed to get sufficiently confident prediction
 
 ![Results for selected thresholds](https://github.com/fletchel/DL2-CALM/assets/34794757/86eefd2d-cf96-4745-bf13-cfe540633250)
