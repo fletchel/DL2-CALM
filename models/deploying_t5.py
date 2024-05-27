@@ -971,6 +971,7 @@ class DeployT5Stack(T5Stack):
                                 pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
                             )
 
+
                         sorted_logits = False
                         if self.top_propagation is not None and top_k_tokens is None:
                             # top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation,
@@ -1169,6 +1170,9 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         if self.decoder.use_early_exit:
             min_exit_layer = self.decoder.exit_min_layer or 0
             self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, config.num_layers)}
+
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
 
     def forward(
         self,

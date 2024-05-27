@@ -640,6 +640,8 @@ def main(model_args, data_args, training_args, additional_args: AdditionalArgume
         consistency_type = additional_args.consistency_type
         exit_conf_type = additional_args.exit_conf_type
         deltas = np.arange(0, 1.1, 0.1)
+
+        deltas = np.arange(0, 1.1, 0.1)
         exit_layer_metrics = []
         L_vals = []
         lambdas = []

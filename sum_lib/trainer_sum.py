@@ -209,6 +209,7 @@ class SumTrainer(Seq2SeqTrainer):
             output.metrics.update(conf_time_per_layer)
 
 
+
         self.log(output.metrics)
 
         if DebugOption.TPU_METRICS_DEBUG in self.args.debug:
