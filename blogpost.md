@@ -290,11 +290,15 @@ The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0
 
 ### Exit layer results
 
-Shown in Figure JK, we see the effect of a change in sample size on on the exit layer in relation to delta. 
+Shown in Figure 6, we see the effect of a change in sample size on on the exit layer in relation to delta. 
 We see that with larger samples the model exists with lower values of delta, this as we would expect.
 
-![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
-Figure JK
+<p align="center">
+  <img src="./plots/calibration/delta_exit_layer_samples_sizes_risk.png">
+  <br>
+  <em>Figure 6: Effects of sample size on calibration with respect to the exit layer (risk) </em>
+</p>
+
 
 
 # Conclusion
