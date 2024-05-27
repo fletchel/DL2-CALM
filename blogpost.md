@@ -224,15 +224,13 @@ We see our classifiers exhibit approximately the expected pattern in performance
 
 Figure 5. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
 
-In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generationl lengths. However, some patterns are evident.
+In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generation lengths. However, some patterns are evident.
 
 First of all, static exiting performs best for any given runtime. We believe this is because there is a substantial amount of overhead involved in early exiting, and due to the fact that we use a small model, this overhead dominates the inference speed improvement of early exiting. No wall clock times are reported in the original paper, so we are unable to verify whether the original authors identified a similar phenomenon. 
 
 Beyond static exiting, we see that softmax response has the fastest runtimes for high ROUGE values, and that the (non-linear) classifiers perform the best for middling ROUGE values (<25).
 
-
-Finally, we compare the performance of the **calibration method** with a naive confidence threshold selection method. [INSERT TABLE]
-
+Note also that the odd appearance of the curves near the bottom of the ROUGE range is because low confidence thresholds tend to lead to bad ROUGE scores and very long generations - therefore the decrease in inference time per token is drowned out by the increase in generation length. It is unclear why low confidence thresholds tend to lead to long generations, but this pattern was also observed by the authors of FREE [12].
 
 ## Calibration 
 
