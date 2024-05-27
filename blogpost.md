@@ -75,7 +75,7 @@ Further gains in the efficiency of autoregressive LLMs would increase the access
 Additionally, the impact of analysing the full history of representations generated at previous layers rather than only the current layer has not been analysed by the authors of CALM. Out of the three confidence estimation methods, two of them (**softmax response** and **early-exit classifier**) utilise only the latest hidden representation, while **hidden-state saturation** takes the outputs of two most recent layers into consideration. However, it remains to be seen whether utilisation of the full history of generation hidden-states may prove beneficial to the performance of early-exit methods, especially for models consisting of many layers.
 
 ![CALM diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/01f461b7-7296-41d5-85c0-84c7dbba7441)
-
+Figure 2. High-level illustration of confidence methods used in CALM paper [4]
 
 Lastly, the original method employs a complex calibration procedure for finding an exit threshold $\lambda \in [0, 1]$ such that the early-exit predictions remain consistent with respect to the full model. Furthermore, the provided statistical guarantees are unlikely to generalise. The assumption under which the model operates is that the calibration set $S_{cal}$ is representative of the entire distribution of prompts. This is a strong assumption, and in certain situations, it is unlikely to hold. While this may work for cases where the LLM operates on a constrained dataset (for example, an LLM used only to summarise news articles), it will likely not work for LLMs that are used in e.g. chatbots, where users can input any prompt they want, some of which will be out-of-distribution. The statistical guarantees provided by the CALM paper may therefore provide a false sense of confidence in the outputs. Thus, we aim to compare the speed/accuracy tradeoff of a naively selected threshold (i.e. hyperparameter search) with a calibrated threshold, to determine whether the calibration provides a noticeable benefit.
 
@@ -94,7 +94,7 @@ In our work, we also introduce a method of considering the entire history of hid
 Moreover, the **attention-based classifier** will usually have a lower inference cost when compared to the most robust method in the original paper, the **softmax response**. This is because the time complexity for the **attention-based classifier** will be $\mathcal{O}(D N^2)$, where $N$ is the sequence length and $D$ is the model dimension. The **softmax response**, on the other hand, has a time complexity of $\mathcal{O}(V D)$, where $V$ is the vocabulary size. Therefore we have that for sufficiently small $N$, the **attention-based classifier** will be faster during inference than the **softmax response**, while also potentially providing more robust confidence estimation.
 
 ![CALM transformer diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/f8855382-5565-47e8-bebf-7a9b5bdd6a31)
-
+Figure 3. High-level illustration of the proposed attention-based confidence classifier
 
 In addition, we perform experiments to investigate the improvement in performance due to the calibration method used in the paper over a naive baseline. No such comparison with a naive baseline is done in the original paper, which seems like a significant oversight. The calibration method used in the original paper is fairly complicated and involves non-trivial statistical methods (e.g. multiple hypothesis testing). It also adds a small amount of computational overhead during inference. The authors justify their confidence threshold selection method by saying that having a statistical guarantee of performance is often useful. Our experiments here investigate whethethe calibration method used in the paper is empirically superior to naive confidence threshold selection without use of hypothesis testing. This will allows us to judge the necessity of calibration step when using different confidence estimation methods.
 
@@ -103,7 +103,30 @@ In addition, we perform experiments to investigate the improvement in performanc
 
 First, we compare the performance of the **top-k token propagation** method with the original **softmax response** method. [INSERT TABLE]
 
-Next, we compare the performance of the **attention-based classifier** with the original **softmax response** method. [INSERT LUAN's FIGURE]
+## Comparison of all confidence methods by speed/performance
+
+In order to compare the confidence methods used, we perform evaluation for each method for a wide range of confidence thresholds. We report comparisons in two ways:
+
+  - how ROUGE varies with the average number of decoder blocks used (figure 4)
+  - how ROUGE varies with the average evaluation runtime normalised by generation length (figure 5).
+  
+In the latter plot, we normalise by generation length as this varies substantially across different setups and confounds the eval runtime.
+
+![Figure4](https://github.com/fletchel/DL2-CALM/assets/70916204/72cd7876-0d3c-428c-82eb-d695d3fc2791)
+Figure 4. ROUGE vs. average number of decoder blocks used by confidence method [add softmax-2000/softmax-10000 when available]
+
+Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers.
+
+We see our classifiers exhibit approximately the expected pattern in performance (namely that the linear classifier performs worst while the two transformer classifiers perform best). Surprisingly, we find that all of these classifiers compare unfavourably with static exiting. We suspect that this is because our classifiers are substantially undertrained due to compute constraints. We had to train each classifier on only about 25% of the available data (in other words, we trained for approximately 0.25 epochs). In the original paper, the classifiers perform only marginally better than static exiting, so it seems plausible that undertraining is sufficient to explain the lackluster performance of our classifiers. Nevertheless, we find that our proposed transformer extension performs better than the linear classifier described in the original paper.
+
+
+![Figure5](https://github.com/fletchel/DL2-CALM/assets/70916204/b7b69852-9067-4786-b2b6-86eb53046e3a)
+Figure 5. Rouge vs. average evaluation runtime normalised for generation length [add softmax-2000/softmax-10000 when available]
+
+In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime (normalised for generation length) in Figure 5. Note that these times are likely quite noisy as the cluster we ran experiments on likely experienced differing loads at different times.
+
+Here we again see that the softmax response performs the best, with the best ROUGE performance across all runtimes. The classifiers again perform worse than static exiting. In particular, it is notable that the additional inference time added by the transformer classifiers appears to cancel out the improvement in performance as measured by ROUGE. Indeed, the MLP classifier appears to perform the best of these classifiers for a given runtime. This may mean that the MLP classifier strikes the most ideal balance between classifier capacity and time complexity of the classifiers tested.
+
 
 Finally, we compare the performance of the **calibration method** with a naive confidence threshold selection method. [INSERT TABLE]
 
