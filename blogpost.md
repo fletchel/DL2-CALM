@@ -68,6 +68,7 @@ Improving the efficiency of LLMs is being studied in several different ways. Mod
 
 The approach studied in the CALM paper is *early exiting*, where the model can decide to stop processing a token without having passed the token through every layer of the transformer. Early exiting was first proposed for transformers used for classification by Schwartz et al. (2020) [3]. Then, Xin et al. (2021) introduced BERxiT to deal with more general tasks than just classification [2]. Recently, it has been shown that the top-ranked prediction for a token often does not change after a certain layer [8], motivating both the CALM paper and our choice for an extension in which we decide to only propagate the top-ranked tokens to subsequent layers.
 
+
 # Review
 
 Further gains in the efficiency of autoregressive LLMs would increase the accessibility of these models for applications in both academia and industry. Although the CALM framework already provides a noticeable improvement in the inference time, the best performing confidence estimation method &mdash; **softmax response** &mdash; introduces significant computational overhead by requiring multiplication of the tokens with a weight matrix of the final layer MLP. This leads to $\mathcal{O}(VD)$ time complexity, where the $V$ denotes the output vocabulary size and $D$ is the dimensionality of hidden representation. In extreme cases, the inference may take more time compared to the original model for difficult tokens where the required confidence threshold is exceeded only in the later layers.
@@ -167,6 +168,18 @@ We began by finetuning the model on the summarization dataset for 3 epochs. Fine
 
 For the evaluation of **top-k token propagation** methods, we modified the `DeployT5Stack.forward()` method in accordance with the changes proposed in Pseudocode 1. We evaluate the performance of this method using the model finetuned for CNN/DM dataset. Since no additional training was required for **top-k token propagation**, all experiments for it could run on a consumer-grade GPU RTX 3070ti, allowing us to run more time-consuming jobs on the compute cluster.
 
+## Calibration
+For the calibration, we ran the calibration as described in the paper on the following confidence measures:
+- Classifier
+- Softmax
+- Transformer (512 dim)
+- Top-k propagation (our extension measure with K=2000)
+
+For each of these, we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
+We also used candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
+
+## Top-k propagation
+
 ## Classifier training
 
 We implemented four types of confidence classifier. These were as follows
@@ -185,8 +198,6 @@ The transformer classifiers consisted of a single attention layer followed by a 
 Each of these classifiers were trained with an "oracle loss". This "oracle loss" is a binary cross-entropy loss with respect to the output of the confidence method, with the target at each layer $l$ being $\delta(\text{argmax}(W_{final}h_{l}) = \text{argmax}(W_{final}h_{final}))$. In other words, the loss aims to train the classifier to output $1$ when the token outputted at the current layer agrees with the final token, and to output $0$ otherwise.
 
 We trained each of these for approx. 0.25 epochs each (due to compute constraints) with the SGD optimizer at a learning rate of $10^{-4}$.
-
-## Calibration
 
 # Results
 
@@ -246,7 +257,7 @@ Figure z shows the delta values plotted against the exit layer for diffierent me
 Figure z 
 ### Textual consistency
 
-Figure m shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors.
+Figure m shows Textual consistency plotted against delta values; for the shown confidence measures, we observe a similar trend to that of the authors.
 We do not see a convergence of consistency values as delta increases, which is likely due to the smaller model that we used.
 ![image info](./plots/calibration/delta_vs_dissimilarity_textual.png)
 Figure m
@@ -256,40 +267,23 @@ We see that as delta increases, the exit layer decreases; this general trend ali
 ![image info](./plots/calibration/delta_vs_exit_layers_textual.png)
 Figure p
 
-## Classifying with Top-k propagation
-
 ### Sample size effects
 ![image info](./plots/calibration/calibration_sample_size_effects.png )
 We explored the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
-The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. This suggests that the increase in sample size effectively offsets the noisiness of the different samples from the validation set, providing a precise measure of dissimilarity. 
+The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. 
 ### Exit layer results
 
+Shown in Figure JK, we see the effect of a change in sample size on on the exit layer in relation to delta. 
+We see that with larger samples the model exists with lower values of delta, this as we would expect.
+
 ![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
+Figure JK
 
-
-
-In Table KL, you can see a summary of the results of exit layers for different consistency types and measures.
-We see, as we would expect, that the exit layer decreases with an increasing delta value for both consistency types and measures.
-
-|    |   delta | Consistency Type    | Measure    | Avg Exit Layers |
-|---:|--------:|:--------------------|:-----------|------------------:|
-|  0 |     0.2 | Textual consistency | softmax    |                 6 |
-|  1 |     0.4 | Textual consistency | softmax    |           3.61893 |
-|  2 |     0.6 | Textual consistency | softmax    |           1.91434 |
-|  3 |     0.2 | Risk consistency    | softmax    |           2.55093 |
-|  4 |     0.4 | Risk consistency    | softmax    |           1.23485 |
-|  5 |     0.6 | Risk consistency    | softmax    |           1.23485 |
-|  6 |     0.2 | Textual consistency | classifier |                 6 |
-|  7 |     0.4 | Textual consistency | classifier |           5.39863 |
-|  8 |     0.6 | Textual consistency | classifier |           3.84354 |
-|  9 |     0.2 | Risk consistency    | classifier |                 6 |
-| 10 |     0.4 | Risk consistency    | classifier |           1.63859 |
-| 11 |     0.6 | Risk consistency    | classifier |                 1 |
-Table KL
 
 # Conclusion
 
 In this paper, we reproduced and extended the high-level results of Confident Adaptive Language Modelling (CALM) [14] with respect to early-exiting. In particular, we found that the softmax response confidence method provided the best trade-off between speed and performance and could lead to faster inference for sufficiently large models. We implemented and tested a method to speed up the softmax response through top-k token propagation, further speeding up this method. We also implemented a number of additional confidence classifiers and improved over the linear classifier presented in CALM with MLP/transformer classifiers, although further work must be done to confirm this, as our experiments here were hindered by limited access to compute. We also reproduced the calibrations of the original paper finding similar trends to that of the authors.  
+
 
 
 # Contributions per student
