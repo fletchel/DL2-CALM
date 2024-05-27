@@ -269,26 +269,6 @@ We see that with larger samples the model exists with lower values of delta, thi
 Figure JK
 
 
-In Table KL, you can see a summary of the results of exit layers for different consistency types and measures.
-We see, as we would expect, that the exit layer decreases with an increasing delta value for both consistency types and measures.
-
-|    |   delta | Consistency Type    | Measure    | Avg Exit Layers |
-|---:|--------:|:--------------------|:-----------|------------------:|
-|  0 |     0.2 | Textual consistency | softmax    |                 6 |
-|  1 |     0.4 | Textual consistency | softmax    |           3.61893 |
-|  2 |     0.6 | Textual consistency | softmax    |           1.91434 |
-|  3 |     0.2 | Risk consistency    | softmax    |           2.55093 |
-|  4 |     0.4 | Risk consistency    | softmax    |           1.23485 |
-|  5 |     0.6 | Risk consistency    | softmax    |           1.23485 |
-|  6 |     0.2 | Textual consistency | classifier |                 6 |
-|  7 |     0.4 | Textual consistency | classifier |           5.39863 |
-|  8 |     0.6 | Textual consistency | classifier |           3.84354 |
-|  9 |     0.2 | Risk consistency    | classifier |                 6 |
-| 10 |     0.4 | Risk consistency    | classifier |           1.63859 |
-| 11 |     0.6 | Risk consistency    | classifier |                 1 |
-
-Table KL - Summary of Avg Exit Layers for different consistency types and confidence measures.
-
 # Conclusion
 
 In this paper, we reproduced and extended the high-level results of Confident Adaptive Language Modelling (CALM) [14] with respect to early-exiting. In particular, we found that the softmax response confidence method provided the best trade-off between speed and performance, and could lead to faster inference for sufficiently large models. We implemented and tested a method to speed up the softmax response through top-k token propagation, further speeding up this method. We also implemented a number of additional confidence classifiers and improved over the linear classifier presented in CALM with MLP/transformer classifiers, although further work must be done to confirm this, as our experiments here were hindered by limited access to compute. 
