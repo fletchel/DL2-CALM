@@ -231,9 +231,9 @@ Beyond static exiting, we see that softmax response has the fastest runtimes for
 Note also that the odd appearance of the curves near the bottom of the ROUGE range is because low confidence thresholds tend to lead to bad ROUGE scores and very long generations - therefore the decrease in inference time per token is drowned out by the increase in generation length. It is unclear why low confidence thresholds tend to lead to long generations, but this pattern was also observed by the authors of FREE [12].
 
 ## Calibration 
-The purpose of this section is primarily reproductive, although we also display our contributions where possible. Specifically, for the CNN-DM dataset, we perform the experiments of Appendix B1, albeit with the smaller T5 model as discussed above. As explained in the section summarising the statistical methods of CALM, there are two dissimilarity measures. Throughout all these plots, $\epsilon = 0.05.$ We start with risk:
+The purpose of this section is primarily reproductive, although we also display our contributions where possible. Specifically, for the CNN-DM dataset, we perform the experiments of Appendix B1, albeit with the smaller T5 model as discussed above. As explained in the section summarising the statistical methods of CALM, there are two dissimilarity measures. Throughout all these plots, $\epsilon = 0.05.$
 ### Risk consistency
- Figure 1 shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency, both the confidence measures of the paper (softmax and vanilla_classifer), as well as our own contributions. We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2. When compared with Figure B2(a) of the paper, we observe identical trends; early growth before stabilisation around a risk dissimilarity of .2. In the paper figure, the risk asymptote is slightly lower at .1, this could be explained by the larger model and more extensive fine-tuning used there.
+ Figure 1 shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency, both the confidence measures of the paper (softmax and vanilla_classifer), as well as our own contributions. We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2. When compared with Figure B2(a) of the paper, we observe identical trends; early growth before stabilisation around a risk dissimilarity of .2. In the paper figure, the risk asymptote is slightly lower at .1, this could be explained by the larger model and more extensive fine-tuning used there. 
  
 <p align="center">
   <img src="./plots/calibration/delta_vs_dissimilarity_risk.png">
@@ -267,36 +267,17 @@ Figure 4 shows the delta values plotted against the average exit layer for diffe
   <em>Figure 4: Plot of the average layer of exit across various confidence measures for varying tolerance values δ, using textual dissimilarity.</em>
 </p>
 
-## Classifying with Top-k propagation
 
 ### Sample size effects
-![image info](./plots/calibration/calibration_sample_size_effects.png )
-We explored the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
-The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. This suggests that the increase in sample size effectively offsets the noisiness of the different samples from the validation set, providing a precise measure of dissimilarity. 
-### Exit layer results
+We also explored the effect of performing calibration using different sample sizes to assess its effect on early exiting. This can be seen in Figure 5:
 
-![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
+<p align="center">
+  <img src="./plots/calibration/delta_exit_layer_samples_sizes_risk.png">
+  <br>
+  <em>Figure 5: Average exit layer vs tolerance for different sample sizes.</em>
+</p>
 
-
-
-In Table KL, you can see a summary of the results of exit layers for different consistency types and measures.
-We see, as we would expect, that the exit layer decreases with an increasing delta value for both consistency types and measures.
-
-|    |   delta | Consistency Type    | Measure    | Avg Exit Layers |
-|---:|--------:|:--------------------|:-----------|------------------:|
-|  0 |     0.2 | Textual consistency | softmax    |                 6 |
-|  1 |     0.4 | Textual consistency | softmax    |           3.61893 |
-|  2 |     0.6 | Textual consistency | softmax    |           1.91434 |
-|  3 |     0.2 | Risk consistency    | softmax    |           2.55093 |
-|  4 |     0.4 | Risk consistency    | softmax    |           1.23485 |
-|  5 |     0.6 | Risk consistency    | softmax    |           1.23485 |
-|  6 |     0.2 | Textual consistency | classifier |                 6 |
-|  7 |     0.4 | Textual consistency | classifier |           5.39863 |
-|  8 |     0.6 | Textual consistency | classifier |           3.84354 |
-|  9 |     0.2 | Risk consistency    | classifier |                 6 |
-| 10 |     0.4 | Risk consistency    | classifier |           1.63859 |
-| 11 |     0.6 | Risk consistency    | classifier |                 1 |
-Table KL
+We observe for larger samples, the early exiting starts earlier. It is relevant to recall here that our methodology for accepting a confidence threshold depends on a hypothesis test confirmed or rejected by a p-value derived from Hoeffding's inequality. As the sample size increases, the difference between the observed dissimilarities and their expected value decreases given our i.i.d statistical assumptions which translates into us rejecting the null hypothesis for higher confidence thresholds. This is what we observe i.e. higher samples mean we start early exiting earlier. This is quite natural: given only a few samples, one cannot confidently accept the empirically observed dissimilarities as representative. 
 
 # Conclusion
 To conclude, for a smaller model than that used in the CALM paper, we reproduced and verified the claims of their calibration process, namely, that their proposed confidence measures can drastically reduce inference time with a tunable risk. We reproduced the finding that the softmax measure was most effective, and observed very similar trends for both textual and risk consistency evolution against tolerance across confident measures.
