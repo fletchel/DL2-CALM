@@ -28,7 +28,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers.trainer_utils import PredictionOutput
 
-from transformers import Seq2SeqTrainer, Trainer 
+from transformers import Seq2SeqTrainer, Trainer
 from transformers.utils import is_torch_tpu_available
 from transformers.deepspeed import deepspeed_init, is_deepspeed_zero3_enabled
 from transformers.debug_utils import DebugOption
@@ -72,7 +72,7 @@ class SumTrainer(Seq2SeqTrainer):
         metric_key_prefix: str = "test",
         **gen_kwargs,
     ) -> PredictionOutput:
-        
+
         predictions, label_ids, predict_metrics = super().predict(test_dataset, ignore_keys, metric_key_prefix, **gen_kwargs)
         # average block layers
         if self.model.decoder.use_shallow_deep:
@@ -200,6 +200,15 @@ class SumTrainer(Seq2SeqTrainer):
                     deploy_time[k] = str([str(_v).split('.')[0] for _v in v])
             output.metrics.update(deploy_time)
 
+        if self.model.conf_time_per_layer is not None:
+            conf_time_per_layer = {}
+            for l, t in self.model.conf_time_per_layer.items():
+                if self.model.decoder.block_op[l - 1] == 0:
+                    continue
+                conf_time_per_layer["conf_time_layer_{}".format(l)] = t.total_seconds() / self.model.decoder.block_op[l - 1]
+            output.metrics.update(conf_time_per_layer)
+
+
         self.log(output.metrics)
 
         if DebugOption.TPU_METRICS_DEBUG in self.args.debug:
@@ -224,6 +233,7 @@ class SumTrainer(Seq2SeqTrainer):
         Prediction/evaluation loop, shared by `Trainer.evaluate()` and `Trainer.predict()`.
         Works both with or without labels.
         """
+
         args = self.args
 
         prediction_loss_only = prediction_loss_only if prediction_loss_only is not None else args.prediction_loss_only
@@ -240,8 +250,8 @@ class SumTrainer(Seq2SeqTrainer):
             self.deepspeed = deepspeed_engine
 
         model = self._wrap_model(self.model, training=False, dataloader=dataloader)
-        
-        
+
+
         # if full fp16 or bf16 eval is wanted and this ``evaluation`` or ``predict`` isn't called
         # while ``train`` is running, cast it to the right dtype first and then put on device
         if not self.is_in_train:
@@ -441,7 +451,7 @@ class SumTrainer(Seq2SeqTrainer):
         """
         has_labels = "labels" in inputs
         inputs = self._prepare_inputs(inputs)
-        
+
         # XXX: adapt synced_gpus for fairscale as well
         gen_kwargs = self._gen_kwargs.copy()
         if gen_kwargs.get("max_length") is None and gen_kwargs.get("max_new_tokens") is None:

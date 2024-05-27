@@ -7,6 +7,16 @@ from transformers.utils import logging
 logger = logging.get_logger(__name__)
 
 
+def sorted_softmax_confidence(
+        logits: torch.Tensor = None,
+        hidden_states: torch.Tensor = None,
+        classifier: torch.nn.Linear = None,
+):
+    assert logits is not None
+    probs = torch.softmax(logits, dim=-1)
+    return probs[..., 0] - probs[..., 1].squeeze()
+
+
 def softmax_confidence(
     logits: torch.Tensor = None,
     hidden_states: torch.Tensor = None,
@@ -41,10 +51,10 @@ def transformer_confidence(hidden_states, classifier):
     return probs[..., 0].squeeze()
 
 
-def get_confidence_class(key):
+def get_confidence_class(key, sorted_logits=False):
 
     _conf_class_map = {
-        'softmax': softmax_confidence,
+        'softmax': sorted_softmax_confidence if sorted_logits else softmax_confidence,
         'linear': meta_confidence,
         'transformer_MLP': meta_confidence
     }
@@ -75,6 +85,7 @@ def get_skip_mask(
     pos_time: int = 1,
     adapt_threshold: float = None,
     return_conf=False,
+    sorted_logits=False,
     all_decoder_states = None
 ):
 
@@ -113,6 +124,12 @@ def get_skip_mask(
             classifier=classifier,
         )
 
+    conf_measure = get_confidence_class(key=key, sorted_logits=sorted_logits)
+    conf = conf_measure(
+        logits=logits,
+        hidden_states=hidden_states,
+        classifier=classifier,
+    )
     mask = torch.where(conf <= threshold, 0., 1.).bool()
 
 
