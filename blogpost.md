@@ -104,7 +104,7 @@ In addition, we perform experiments to investigate the improvement in performanc
 
 We perform all of our experiments using a T5-small model [9] and the CNN/DM summarization dataset [10]. T5-small is an encoder-decoder model which has been trained on a range of tasks, including summarization, and performs well on them [11]. The CNN/DM dataset consists of approximately 300,000 news articles and corresponding summaries. We chose to use this model and dataset as they were used in the original paper, and we wanted as close a comparison as possible.
 
-Our codebase was built off an implementation used in the Fast Robust Early Exiting paper [12], which had implemented the basic structure of early exiting.
+Our codebase was built off an implementation used in the Fast Robust Early Exiting paper [12], which implements the basic structure of early exiting.
 
 We made use of the ROUGE-L score [13] as our primary performance metric. This is a standard metric for evaluating summarization performance.
 
