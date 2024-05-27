@@ -224,15 +224,13 @@ We see our classifiers exhibit approximately the expected pattern in performance
 
 Figure 5. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
 
-In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generationl lengths. However, some patterns are evident.
+In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generation lengths. However, some patterns are evident.
 
 First of all, static exiting performs best for any given runtime. We believe this is because there is a substantial amount of overhead involved in early exiting, and due to the fact that we use a small model, this overhead dominates the inference speed improvement of early exiting. No wall clock times are reported in the original paper, so we are unable to verify whether the original authors identified a similar phenomenon. 
 
 Beyond static exiting, we see that softmax response has the fastest runtimes for high ROUGE values, and that the (non-linear) classifiers perform the best for middling ROUGE values (<25).
 
-
-Finally, we compare the performance of the **calibration method** with a naive confidence threshold selection method. [INSERT TABLE]
-
+Note also that the odd appearance of the curves near the bottom of the ROUGE range is because low confidence thresholds tend to lead to bad ROUGE scores and very long generations - therefore the decrease in inference time per token is drowned out by the increase in generation length. It is unclear why low confidence thresholds tend to lead to long generations, but this pattern was also observed by the authors of FREE [12].
 
 ## Calibration 
 
@@ -292,11 +290,21 @@ We see, as we would expect, that the exit layer decreases with an increasing del
 Table KL
 
 # Conclusion
-```Conclude```
+
+In this paper, we reproduced and extended the high-level results of Confident Adaptive Language Modelling (CALM) [14] with respect to early-exiting. In particular, we found that the softmax response confidence method provided the best trade-off between speed and performance, and could lead to faster inference for sufficiently large models. We implemented and tested a method to speed up the softmax response through top-k token propagation, further speeding up this method. We also implemented a number of additional confidence classifiers and improved over the linear classifier presented in CALM with MLP/transformer classifiers, although further work must be done to confirm this, as our experiments here were hindered by limited access to compute. 
 
 
 # Contributions per student
-```Close the notebook with a description of each student's contribution.```
+
+Luan Fletcher - Implemented confidence classifiers (linear, transformer, MLP) and did associated data analysis and writeup
+
+Konrad Szewczyk - Implemented top-k propagation and did associated data analysis and writeup
+
+Daniel Goodwin - Implementation and investigation/reproduction of calibration process
+
+Andrew Heath - Implementation and investigation/reproduction of calibration process
+
+Robert van der Klis - Reproduction of original paper results and finetuning of models
 
 # References
 [1] T. Brown et al., “Language Models are Few-Shot Learners,” in Advances in Neural Information Processing Systems, Curran Associates, Inc., 2020, pp. 1877–1901. Accessed: May 27, 2024. [Online]. Available: https://papers.nips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html
