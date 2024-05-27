@@ -279,6 +279,9 @@ Figure 4 shows the delta values plotted against the average exit layer for diffe
 </p>
 
 ### Sample size effects
+
+We also investiaged briefly the effects of different samples sizes on the calibiration proccess.
+
 Figure 5 the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
 The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. 
 <p align="center">
@@ -287,8 +290,6 @@ The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0
   <em>Figure 5: Effects of sample size on calibration with respect to the dissimilarity metric (risk) </em>
 </p>
 
-
-### Exit layer results
 
 Shown in Figure 6, we see the effect of a change in sample size on on the exit layer in relation to delta. 
 We see that with larger samples the model exists with lower values of delta, this as we would expect.
