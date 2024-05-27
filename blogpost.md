@@ -197,8 +197,6 @@ Each of these classifiers were trained with an "oracle loss". This "oracle loss"
 
 We trained each of these for approx. 0.25 epochs each (due to compute constraints) with the SGD optimizer at a learning rate of $10^{-4}$.
 
-## Calibration
-
 # Results
 ```Results of your work (link that part with the code in the jupyter notebook)```
 
@@ -301,7 +299,7 @@ We see, as we would expect, that the exit layer decreases with an increasing del
 Table KL
 
 # Conclusion
-```Conclude```
+To conclude, for a smaller model than that used in the CALM paper, we reproduced and verified the claims of their calibration process, namely, that their proposed confidence measures can drastically reduce inference time with a tunable risk. We further added our confidence measures and compared their performance. Our methods did not beat those of the authors' in terms of early exiting for fixed tolerance, or in regards to moderating the dissimilarity of the early generated sequence. Given the smaller model we had access to as well as our limited fine-tuning, it is unclear the cause of our seemingly theoretically justified extensions. We also made several expansions to an existing Pytorch repository such as adding a stastical calibration infrastructure which may provide useful to future researchers. 
 
 
 # Contributions per student
