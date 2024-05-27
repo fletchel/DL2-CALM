@@ -19,7 +19,7 @@ In the experiments shown in CALM paper, **softmax response** consistently outper
 
 Besides proposing a new early-exiting mechanism via the confidence measures on intermediate decoder tokens as described above, the paper also presents a statistical procedure which allows the implementer to obtain probabilistic guarantees on the disparity between the generations of the full LLM and the early exiting LLM.
 
-To make this more precise, let $S_{cal} = (P_i)\_{i \in [n]}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t &lt m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
+To make this more precise, let $$S_{cal} = (P_i)\_{i \in [n]}$$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $$(e_1,\dots,e_m)$$, and a partially generated decoded response $$(y_1, \dots, y_t)$$ for $t &lt m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
 
 The key idea of early-exiting is to use some earlier decoder state $d_t^i$ with $i &lt L$ to obtain this vocabulary distribution. We use some earlier decoder state $d_t^i$ if its local exiting threshold $\lambda_t^i$ is exceeded by the local confidence score $c_t^i$. Several ways of obtaining this local confidence score have been discussed above.
 
@@ -68,18 +68,6 @@ Improving the efficiency of LLMs is being studied in several different ways. Mod
 
 The approach studied in the CALM paper is *early exiting*, where the model can decide to stop processing a token without having passed the token through every layer of the transformer. Early exiting was first proposed for transformers used for classification by Schwartz et al. (2020) [3]. Then, Xin et al. (2021) introduced BERxiT to deal with more general tasks than just classification [2]. Recently, it has been shown that the top-ranked prediction for a token often does not change after a certain layer [8], motivating both the CALM paper and our choice for an extension in which we decide to only propagate the top-ranked tokens to subsequent layers.
 
-# Experiments
-Mention here that all experiments only used the CNN/Daily Mail dataset and the T5-small model.
-
-## Calibration
-For the calibration we ran the calibiration as descripted in the paper on the following confidence measures:
-- Classifier
-- Softmax
-- Transformer (512 dim)
-- Top-k propagation (our extension measure)
-
-For each of these we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
-We also provide candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
 
 # Review
 
@@ -176,6 +164,16 @@ We made use of the ROUGE-L score [13] as our primary performance metric. This is
 
 We began by finetuning the model on the summarization dataset for 3 epochs. Finetuning brought our model from a ROUGE-LSUM of **26.73** to **29.67**.
 
+## Calibration
+For the calibration, we ran the calibration as described in the paper on the following confidence measures:
+- Classifier
+- Softmax
+- Transformer (512 dim)
+- Top-k propagation (our extension measure with K=2000)
+
+For each of these, we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
+We also used candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
+
 ## Top-k propagation
 
 ## Classifier training
@@ -250,7 +248,7 @@ Figure z shows the delta values plotted against the exit layer for diffierent me
 Figure z 
 ### Textual consistency
 
-Figure m shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors.
+Figure m shows Textual consistency plotted against delta values; for the shown confidence measures, we observe a similar trend to that of the authors.
 We do not see a convergence of consistency values as delta increases, which is likely due to the smaller model that we used.
 ![image info](./plots/calibration/delta_vs_dissimilarity_textual.png)
 Figure m
@@ -260,14 +258,11 @@ We see that as delta increases, the exit layer decreases; this general trend ali
 ![image info](./plots/calibration/delta_vs_exit_layers_textual.png)
 Figure p
 
-## Classifying with Top-k propagation
-
 ### Sample size effects
 ![image info](./plots/calibration/calibration_sample_size_effects.png )
 We explored the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
-The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. This suggests that the increase in sample size effectively offsets the noisiness of the different samples from the validation set, providing a precise measure of dissimilarity. 
+The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. 
 ### Exit layer results
-
 ![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
 
 
