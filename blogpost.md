@@ -146,6 +146,7 @@ for decoder_layer in decoder:
   if confidence > threshold:
     output the next token based on probs                                  # use top_k_indices to align K-dimensional logits with the expected output size
 ```
+Pseudocode 1. Comparison between the logic of original softmax response and our variant supplemented with top-k token propagation.
 
 Although matrix-vector multiplication involving a full weight matrix of the final MLP has a time complexity $O(D \times V)$, it should be remembered that this operation can be efficiently parallelised on GPUs; thus, the actual contribution of this operation to the confidence estimation process is likely smaller than it could be expected looking at the time complexity. Beyond a certain point, further decrease in the matrix size may not even lead to efficiency improvements as the multiplication will not be utilising all of the compute units of the GPU. However, other operations within **softmax response** method, such as softmax calculation and finding 2 highest probabilities, also depend on the vocabulary size and will benefit from smaller number of logits to consider.
 
@@ -176,7 +177,7 @@ We made use of the ROUGE-L score [13] as our primary performance metric. This is
 
 We began by finetuning the model on the summarization dataset for 3 epochs. Finetuning brought our model from a ROUGE-LSUM of **26.73** to **29.67**.
 
-## Top-k propagation
+For the evaluation of **top-k token propagation** methods, we modified the `DeployT5Stack.forward()` method in accordance with the changes proposed in Pseudocode 1. We evaluate the performance of this method using the model finetuned for CNN/DM dataset. Since no additional training was required for **top-k token propagation**, all experiments for it could run on a consumer-grade GPU RTX 3070ti, allowing us to run more time-consuming jobs on the compute cluster.
 
 ## Classifier training
 
@@ -200,9 +201,16 @@ We trained each of these for approx. 0.25 epochs each (due to compute constraint
 ## Calibration
 
 # Results
-```Results of your work (link that part with the code in the jupyter notebook)```
 
-First, we compare the performance of the **top-k token propagation** method with the original **softmax response** method. [INSERT TABLE]
+## Top-k propagation 
+First, we compare the performance of the **top-k token propagation** with the original **softmax response** method for different numbers of propagated tokens and confidence thresholds. For both $\lambda = 0.5$ and $\lambda = 0.9$, using only 2000 most probable tokens to compute confidence allowed for an increase in the number of generated tokens per second at a slight cost to the $\text{ROUGE-L}_\text{sum}$ metric. Overall, it is possible to observe the trends we have expected in the **Contribution** section &mdash; the benefits of using our method become more noticeable as greater number of layers needs needs to be traversed to get sufficiently confident prediction
+
+[TABLE]
+
+Delving deeper into the distribution of time spent on confidence estimation between different layers, we can find proof of why our method performs better for larger average number of decoder layers. As expected, we observe an additional time overhead for the first layer that seems to scale linearly with the value of parameter $K$, while for deeper layers it is possible to obtain up to 40% speedup for confidence computation step for $K$ equal to 2000. The speed benefits get smaller as the number of propagated tokens increased; however, this allows for maintaining metrics closer to the full CALM framework &mdash; for $K=10000$ there is almost no difference in $\text{ROUGE-L}_\text{sum}$ compared to basic CALM with a slight efficiency improvement for $\lambda = 0.9$.
+
+![Average time for confidence estimation per layer](https://github.com/fletchel/DL2-CALM/assets/34794757/b1ce916c-dd0c-4617-866e-2ef667a19c41)
+
 
 ## Comparison of all confidence methods by speed/performance
 
