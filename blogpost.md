@@ -263,8 +263,12 @@ Figure p
 We explored the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
 The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. 
 ### Exit layer results
-![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
 
+Shown in Figure JK, we see the effect of a change in sample size on on the exit layer in relation to delta. 
+We see that with larger samples the model exists with lower values of delta, this as we would expect.
+
+![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
+Figure JK
 
 
 In Table KL, you can see a summary of the results of exit layers for different consistency types and measures.
@@ -287,11 +291,19 @@ We see, as we would expect, that the exit layer decreases with an increasing del
 Table KL
 
 # Conclusion
-```Conclude```
+
 
 
 # Contributions per student
-```Close the notebook with a description of each student's contribution.```
+Robert van der Klis: 
+
+Luan Fletcher: 
+
+Daniel Goodwin
+
+Andrew Heath
+
+Konrad
 
 # References
 [1] T. Brown et al., “Language Models are Few-Shot Learners,” in Advances in Neural Information Processing Systems, Curran Associates, Inc., 2020, pp. 1877–1901. Accessed: May 27, 2024. [Online]. Available: https://papers.nips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html
