@@ -1,0 +1,164 @@
+{
+  "metrics": [
+    {
+      "predict_rouge1": 36.1706,
+      "predict_rouge2": 18.9669,
+      "predict_rougeL": 29.0429,
+      "predict_rougeLsum": 33.5503,
+      "predict_gen_len": 53.55,
+      "predict_runtime": 9.3352,
+      "predict_samples_per_second": 2.142,
+      "predict_steps_per_second": 2.142,
+      "predict_block_avg": 5.999999999999719
+    },
+    {
+      "predict_rouge1": 36.1706,
+      "predict_rouge2": 18.9669,
+      "predict_rougeL": 29.0429,
+      "predict_rougeLsum": 33.5503,
+      "predict_gen_len": 53.55,
+      "predict_runtime": 5.3436,
+      "predict_samples_per_second": 3.743,
+      "predict_steps_per_second": 3.743,
+      "predict_block_avg": 5.99999999999986
+    },
+    {
+      "predict_rouge1": 36.1706,
+      "predict_rouge2": 18.9669,
+      "predict_rougeL": 29.0429,
+      "predict_rougeLsum": 33.5503,
+      "predict_gen_len": 53.55,
+      "predict_runtime": 5.371,
+      "predict_samples_per_second": 3.724,
+      "predict_steps_per_second": 3.724,
+      "predict_block_avg": 5.999999999999907
+    },
+    {
+      "predict_rouge1": 29.4977,
+      "predict_rouge2": 11.5362,
+      "predict_rougeL": 21.1409,
+      "predict_rougeLsum": 26.4453,
+      "predict_gen_len": 58.5,
+      "predict_runtime": 5.0398,
+      "predict_samples_per_second": 3.968,
+      "predict_steps_per_second": 3.968,
+      "predict_block_avg": 4.80085470085429
+    },
+    {
+      "predict_rouge1": 8.534,
+      "predict_rouge2": 0.2439,
+      "predict_rougeL": 7.6222,
+      "predict_rougeLsum": 7.2193,
+      "predict_gen_len": 85.05,
+      "predict_runtime": 4.739,
+      "predict_samples_per_second": 4.22,
+      "predict_steps_per_second": 4.22,
+      "predict_block_avg": 0.9999999999999412
+    },
+    {
+      "predict_rouge1": 8.534,
+      "predict_rouge2": 0.2439,
+      "predict_rougeL": 7.6222,
+      "predict_rougeLsum": 7.2193,
+      "predict_gen_len": 85.05,
+      "predict_runtime": 3.8042,
+      "predict_samples_per_second": 5.257,
+      "predict_steps_per_second": 5.257,
+      "predict_block_avg": 0.9999999999999412
+    },
+    {
+      "predict_rouge1": 8.534,
+      "predict_rouge2": 0.2439,
+      "predict_rougeL": 7.6222,
+      "predict_rougeLsum": 7.2193,
+      "predict_gen_len": 85.05,
+      "predict_runtime": 3.8303,
+      "predict_samples_per_second": 5.222,
+      "predict_steps_per_second": 5.222,
+      "predict_block_avg": 0.9999999999999706
+    },
+    {
+      "predict_rouge1": 8.534,
+      "predict_rouge2": 0.2439,
+      "predict_rougeL": 7.6222,
+      "predict_rougeLsum": 7.2193,
+      "predict_gen_len": 85.05,
+      "predict_runtime": 3.8643,
+      "predict_samples_per_second": 5.176,
+      "predict_steps_per_second": 5.176,
+      "predict_block_avg": 0.9999999999999803
+    },
+    {
+      "predict_rouge1": 8.534,
+      "predict_rouge2": 0.2439,
+      "predict_rougeL": 7.6222,
+      "predict_rougeLsum": 7.2193,
+      "predict_gen_len": 85.05,
+      "predict_runtime": 3.8259,
+      "predict_samples_per_second": 5.227,
+      "predict_steps_per_second": 5.227,
+      "predict_block_avg": 0.9999999999999853
+    },
+    {
+      "predict_rouge1": 8.534,
+      "predict_rouge2": 0.2439,
+      "predict_rougeL": 7.6222,
+      "predict_rougeLsum": 7.2193,
+      "predict_gen_len": 85.05,
+      "predict_runtime": 3.9005,
+      "predict_samples_per_second": 5.127,
+      "predict_steps_per_second": 5.127,
+      "predict_block_avg": 0.9999999999999882
+    },
+    {
+      "predict_rouge1": 8.534,
+      "predict_rouge2": 0.2439,
+      "predict_rougeL": 7.6222,
+      "predict_rougeLsum": 7.2193,
+      "predict_gen_len": 85.05,
+      "predict_runtime": 4.2875,
+      "predict_samples_per_second": 4.665,
+      "predict_steps_per_second": 4.665,
+      "predict_block_avg": 0.9999999999999902
+    }
+  ],
+  "deltas": [
+    0.0,
+    0.1,
+    0.2,
+    0.30000000000000004,
+    0.4,
+    0.5,
+    0.6000000000000001,
+    0.7000000000000001,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "L_vals": [
+    0,
+    0,
+    0,
+    0.07968644903735678,
+    0.21112380332105707,
+    0.21112380332105707,
+    0.21112380332105707,
+    0.21112380332105707,
+    0.21112380332105707,
+    0.21112380332105707,
+    0.21112380332105707
+  ],
+  "lambdas": [
+    1,
+    1,
+    1,
+    0.6,
+    0.55,
+    0.05,
+    0.05,
+    0.05,
+    0.05,
+    0.05,
+    0.05
+  ]
+}
