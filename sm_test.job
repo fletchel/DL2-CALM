@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition=gpu_mig
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=9
 #SBATCH --gpus=1
@@ -18,23 +18,28 @@ module load Anaconda3/2022.05
 source activate calm
 # Run your code
 
-srun python -u summary_test.py \
-    --model_name_or_path bochaowei/t5-small-finetuned-cnn-wei1 \
-    --do_eval \
+srun python -u run_summarization.py \
+    --model_name_or_path ../cnndm_t5_small_run2 \
+    --do_cali True \
     --dataset_name cnn_dailymail \
     --dataset_config_name "3.0.0" \
-    --output_dir ./save/t5-small-finetuned-cnn/ \
+    --output_dir ./save/cali/cali_run1 \
     --per_device_eval_batch_size 1 \
     --deploy_scenario True \
     --use_synchronize True \
     --overwrite_output_dir \
-    --predict_with_generate \
+    --predict_with_generate True \
     --source_prefix "summarize: " \
     --max_eval_samples 1000 \
-    --exit_conf_threshold 0.9 \
+    --max_calibrate_samples 100 \
     --use_early_exit True \
     --exit_conf_type softmax \
-    --exit_min_layer 4
+    --exit_min_layer 1 \
+    --calibrate_delta 10 \
+    --calibrate_epsilon 0.1 \
+    --consistency_type textual \
+    --thresholds (1 .9 .8 .7 .6 .5 .4 .3 .2 .1) 
+    # > outputs/output4.log 2>&1
 
     # FREE
     # --use_shallow_deep True \
@@ -48,6 +53,12 @@ srun python -u summary_test.py \
     # --exit_conf_type softmax \
     # --exit_conf_threshold 0.9 \
     # --exit_min_layer 4 \
+
+    # CALM calibration
+    # --conf_threshold_vals "1 .9 .8 .7 .6 .5 .4 .3 .2 .1" \
+    # --calibrate_delta 10 \
+    # --calibrate_epsilon 0.1 \
+    # --consistency_type textual \ 
 
     # static-exiting
     # --static_exit_layer 6 \

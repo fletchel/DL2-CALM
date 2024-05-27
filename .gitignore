@@ -76,7 +76,6 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-.ipynb_checkpoints
 
 # IPython
 profile_default/
@@ -151,12 +150,12 @@ wandb/
 
 jupyter_notebooks
 .ipynb_checkpoints
-*.ipynb
+
 scripts
 save
 *.jsonl
 *.csv
-*.sh
+
 
 *.out
 *.job

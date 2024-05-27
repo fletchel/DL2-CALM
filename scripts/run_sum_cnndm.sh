@@ -23,8 +23,8 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.run --nproc_per_node=4 
     # --do_layer_transformation False \
 
     # CALM
-    # --output_hidden_states_decoder True \
-    # --intermediate_loss_fn weighted_ce \
+#     --output_hidden_states_decoder True \
+#     --intermediate_loss_fn weighted_ce \
 
     # for t5-3b
     # --bf16 \
@@ -58,10 +58,10 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.run --nproc_per_node=1 \
     # --use_adap_threshold True \ # to use adaptive threshold
 
     # CALM
-    # --use_early_exit True \
-    # --exit_conf_type softmax \
-    # --exit_conf_threshold 0.9 \
-    # --exit_min_layer 4 \
+     --use_early_exit True \
+     --exit_conf_type softmax \
+     --exit_conf_threshold 0.9 \
+     --exit_min_layer 4 \
 
     # static-exiting
     # --static_exit_layer 6 \

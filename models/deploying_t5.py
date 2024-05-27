@@ -1,3 +1,4 @@
+
 """
 T5: https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py#L19
 """
@@ -43,7 +44,9 @@ from transformers.utils import logging
 from util import (
     get_skip_mask,
     BetaMixture1D,
-) 
+    TransformerClassifier,
+    TransformerLinearClassifier
+)
 
 logger = logging.get_logger(__name__)
 __HEAD_MASK_WARNING_MSG = """
@@ -425,7 +428,8 @@ class DeployT5Block(T5Block):
         parallel_mask=False,
         stack_hidden_states=None,
     ):
-    
+
+        #print(self.config.exit_conf_threshold)
         if past_key_value is not None:
             if not self.is_decoder:
                 logger.warning("`past_key_values` is passed to the encoder. Please make sure this is intended.")
@@ -550,6 +554,8 @@ class DeployT5Stack(T5Stack):
         self.stack_conf, self.stack_pred = (), ()
         self.stack_conf_all, self.stack_ident_all = (), ()
 
+        self.top_propagation = config.top_propagation
+
         if self.is_decoder:
             self._reset_time_measure()
         else: self.deploy_time = None
@@ -565,7 +571,12 @@ class DeployT5Stack(T5Stack):
                             'time_parallel_key_value_gen': [datetime.timedelta(), datetime.timedelta()],
                             'time_parallel_attn': [datetime.timedelta(), datetime.timedelta()],
                             'time_parallel_ffn': datetime.timedelta(),
-                            'time_others': datetime.timedelta(),}
+                            'time_others': datetime.timedelta()
+                            }
+        self.conf_time_per_layer = None
+        if self.use_early_exit:
+            min_exit_layer = self.exit_min_layer or 0
+            self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, self.config.num_layers)}
 
     def parallel_gen_token(
         self,
@@ -718,6 +729,7 @@ class DeployT5Stack(T5Stack):
         return_dict=None,
         lm_head=None,
         cm_head=None,
+        decoder_hidden_states=None
     ):
         r""" 
         We have implemented the following inference strategy:
@@ -729,6 +741,7 @@ class DeployT5Stack(T5Stack):
             While a few early layers are defined as 'Shallow' decoder, the entire network including Shallow is defined as 'Deep' decoder.
             Each token can skip the Deep decoder path if confidence at Shallow decoder is higher than threshold.
         """
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         use_cache = use_cache if use_cache is not None else self.config.use_cache
@@ -800,11 +813,12 @@ class DeployT5Stack(T5Stack):
                 )
                 use_cache = False
 
+        num_layers = len(self.block)
         # Prepare head mask if needed
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
         cross_attn_head_mask = self.get_head_mask(cross_attn_head_mask, self.config.num_layers)
         present_key_value_states = [] if use_cache else None
-        all_hidden_states = None
+        all_hidden_states = torch.empty((num_layers, self.config.d_model), device=inputs_embeds.device)
         all_attentions = None
         all_cross_attentions = None
         position_bias = None
@@ -817,6 +831,8 @@ class DeployT5Stack(T5Stack):
         skip_mask = False  # False: forward, and True: skip
         self.shallow2deep = False  # False: skip, and True: forward
         self.lm_logits = None  # to prevent calculating logits twice
+
+        top_k_tokens = None
 
         for i, layer_module in enumerate(self.block):
                 
@@ -916,24 +932,84 @@ class DeployT5Stack(T5Stack):
                         if self.config.use_synchronize: torch.cuda.synchronize()
                         start = datetime.datetime.now()
                         _hidden_states = self.dropout(self.final_layer_norm(hidden_states))
-                        lm_logits = lm_head(_hidden_states) if not self.config.tie_word_embeddings \
-                            else lm_head(_hidden_states * (self.config.d_model ** -0.5))
-                            
+                        temp_hidden_ = _hidden_states if not self.config.tie_word_embeddings \
+                                else _hidden_states * (self.config.d_model ** -0.5)
+                        if top_k_tokens is not None:
+                            # w = torch.take_along_dim(
+                            #     lm_head.weight.expand(temp_hidden_.shape[0], -1, -1),
+                            #     top_k_tokens.expand(1, -1, -1).permute((1, 2, 0)), dim=1
+                            # )
+                            # logits = torch.bmm(w, temp_hidden_.permute(0, 2, 1)).squeeze(2)
+                            # lm_logits = logits.unsqueeze(1)
+                            # w = lm_head.weight[top_k_tokens]
+                            # logits = temp_hidden_.squeeze(0) @ w.T
+                            # lm_logits = logits.unsqueeze(1)
+                            lm_logits = torch.nn.functional.linear(temp_hidden_, top_k_weight, None)
+                        else:
+                            lm_logits = lm_head(temp_hidden_)
+
                         #lm_logits[..., 0] = -1000 # exclude pad token
+                        if 'transformer' in self.config.exit_conf_type:
+
+                            all_hidden_states[i] = hidden_states.squeeze(0)
+                            cur_full_states = torch.cat([self.final_layer_norm(decoder_hidden_states[i].unsqueeze(0)), _hidden_states], dim=1)
+                            skip_mask = get_skip_mask(
+                                lm_logits,
+                                _hidden_states,
+                                cm_head,
+                                config=self.config,
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
+                                all_decoder_states = cur_full_states
+                            )
+
+                        else:
+                            skip_mask = get_skip_mask(
+                                lm_logits,
+                                _hidden_states,
+                                cm_head,
+                                config=self.config,
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
+                            )
+
+
+                        sorted_logits = False
+                        if self.top_propagation is not None and top_k_tokens is None:
+                            # top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation,
+                            #                           sorted=True)
+                            top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation, sorted=True)
+                            top_k_tokens, lm_logits = top_k_results.indices, top_k_results.values
+                            top_k_tokens = top_k_tokens.squeeze(0)
+                            lm_logits = lm_logits.unsqueeze(0)
+                            #lm_logits = lm_logits[..., top_k_tokens]
+                            top_k_weight = lm_head.weight[top_k_tokens]
+                            sorted_logits = True
 
                         skip_mask = get_skip_mask(
                             lm_logits,
                             _hidden_states,
                             cm_head,
                             config=self.config,
-                            pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
+                            pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
+                            sorted_logits=sorted_logits
                         )
-                        if not skip_mask: self.block_op[i] += 1                    
+
+                        if skip_mask and top_k_tokens is not None:
+                            lm_logits = torch.scatter(
+                                torch.full((temp_hidden_.shape[0], lm_head.weight.shape[0]),
+                                           fill_value=torch.finfo(lm_logits.dtype).min, device=lm_logits.device),
+                                dim=1, index=top_k_tokens.unsqueeze(0), src=lm_logits.squeeze(1)
+                            )
+                            lm_logits = lm_logits.unsqueeze(1)
+
+                        if not skip_mask: self.block_op[i] += 1
                         if skip_mask: self.lm_logits = lm_logits
                         if self.config.use_synchronize: torch.cuda.synchronize()
-                        self.deploy_time['time_confidence'] += (datetime.datetime.now() - start)
-                    
-                # Normal framework
+                        conf_time = (datetime.datetime.now() - start)
+                        self.deploy_time['time_confidence'] += conf_time
+                        if self.conf_time_per_layer:
+                            self.conf_time_per_layer[i] += conf_time
+
+                        # Normal framework
                 elif (not self.use_shallow_deep and not self.use_early_exit):
                     self.block_op[i] += 1
                 
@@ -1003,6 +1079,7 @@ class DeployT5Stack(T5Stack):
                 ]
                 if v is not None
             )
+
         return BaseModelOutputWithPastAndCrossAttentions(
             last_hidden_state=hidden_states,
             past_key_values=present_key_value_states,
@@ -1016,7 +1093,6 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
     def __init__(self, config):
         super().__init__(config)
         self.model_dim = config.d_model
-
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
 
         encoder_config = copy.deepcopy(config)
@@ -1034,14 +1110,31 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.decoder.lm_head = self.lm_head
-        if self.config.exit_conf_type == 'meta' or self.config.shallow2deep_conf_type == "meta":
+
+        logger.info(f"Config exit conf type: {self.config.exit_conf_type}")
+        if self.config.exit_conf_type == 'vanilla_classifier':
             self.cm_head = nn.Sequential(
-                nn.Linear(config.d_model, config.d_model, bias=True),
-                nn.ReLU(),
-                nn.Linear(config.d_model, 2, bias=True),
+                nn.Linear(config.d_model, 2, bias=True)
             )
-        else:
-            self.cm_head = None
+
+        elif self.config.exit_conf_type == 'transformer_linear_64':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_linear_512':
+            self.cm_head = TransformerLinearClassifier(config.d_model, 512, 16)
+
+        elif self.config.exit_conf_type == 'MLP':
+            self.cm_head = nn.Sequential(nn.Linear(config.d_model, config.d_model),
+                                          nn.ReLU(),
+                                          nn.Linear(config.d_model, 2))
+
+        elif self.config.exit_conf_type == 'transformer_MLP_64':
+            self.cm_head = TransformerClassifier(config.d_model, 64, 16)
+
+        elif self.config.exit_conf_type == 'transformer_MLP_512':
+            self.cm_head = TransformerClassifier(config.d_model, 512, 16)
+
+        else: self.cm_head = None
 
         # RollBack policy
         self.rollback_num = 0
@@ -1050,7 +1143,9 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         # BMM
         self.bmm_update_iter = 0
         self.bmm_update_max_iter = 300
-        
+
+        self.runs = 0
+
         self.deploy_time = {
             'time_encoder_forward': datetime.timedelta(),
             'time_decoder_forward': datetime.timedelta(),
@@ -1067,6 +1162,17 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             'time_estimate_conf': datetime.timedelta(),
             'time_others': datetime.timedelta(),
         }
+
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
+
+        self.conf_time_per_layer = None
+        if self.decoder.use_early_exit:
+            min_exit_layer = self.decoder.exit_min_layer or 0
+            self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, config.num_layers)}
+
+    def set_config_exit_threshold(self, threshold):
+        self.config.exit_conf_threshold = threshold
 
     def forward(
         self,
@@ -1086,6 +1192,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        decoder_hidden_states = None
     ) -> Union[Tuple[torch.FloatTensor], Seq2SeqLMOutput]:
         r"""
         DeployT5ForConditionalGeneration class is for a deployment scenario,
@@ -1100,7 +1207,8 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         encoder_outputs, decoder_outputs = self.forward_impl(input_ids, attention_mask, decoder_input_ids, decoder_attention_mask,
                                                             head_mask, decoder_head_mask, cross_attn_head_mask, encoder_outputs,
                                                             past_key_values, inputs_embeds, decoder_inputs_embeds, labels, use_cache,
-                                                            output_attentions, output_hidden_states, return_dict)
+                                                            output_attentions, output_hidden_states, return_dict, decoder_hidden_states)
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         start = datetime.datetime.now()
         if self.decoder.lm_logits is None:  # token has not skipped
@@ -1168,6 +1276,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        decoder_hidden_states = None
     ):
     
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
@@ -1215,7 +1324,7 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             
             self.decoder.bmm_threshold = self.decoder.bmm_model.predict_proba(0.3, 0.9)
             self.bmm_update_iter += 1
-        
+
         # Decode
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
@@ -1232,12 +1341,18 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             return_dict=return_dict,
             lm_head=self.lm_head,
             cm_head=self.cm_head,
+            decoder_hidden_states=decoder_hidden_states
         )
+
         if self.config.use_synchronize: torch.cuda.synchronize()
         self.deploy_time['time_decoder_forward'] += (datetime.datetime.now() - start)
         for k, v in self.decoder.deploy_time.items():
             if type(v) != list: self.deploy_time[k] += v
             else: self.deploy_time[k] = [_d + _v for _d, _v in zip(self.deploy_time[k], v)]
+        if self.conf_time_per_layer:
+            for layer_id in self.conf_time_per_layer.keys():
+                self.conf_time_per_layer[layer_id] += self.decoder.conf_time_per_layer[layer_id]
+        #     print(layer_id, self.conf_time_per_layer[layer_id] / self.decoder.block_op[layer_id])
         self.decoder._reset_time_measure()
 
         return encoder_outputs, decoder_outputs
@@ -1298,16 +1413,17 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         )
 
         # init attention / hidden states / scores tuples
+        num_layers = self.config.num_decoder_layers
         scores = () if (return_dict_in_generate and output_scores) else None
         decoder_attentions = () if (return_dict_in_generate and output_attentions) else None
         cross_attentions = () if (return_dict_in_generate and output_attentions) else None
-        decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
-
+        #decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
+        decoder_hidden_states = torch.empty((num_layers, 0, self.model_dim), device=input_ids.device)
         # if model is an encoder-decoder, retrieve encoder attention weights and hidden states
         if return_dict_in_generate and self.config.is_encoder_decoder:
             encoder_attentions = model_kwargs["encoder_outputs"].get("attentions") if output_attentions else None
             encoder_hidden_states = (
-                model_kwargs["encoder_outputs"].get("hidden_states") if output_hidden_states else None
+                model_kwargs["encoder_outputs"].get("hidden_statses") if output_hidden_states else None
             )
 
         # keep track of which sequences are already finished
@@ -1339,8 +1455,8 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                 return_dict=True,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
-            )       
-
+                decoder_hidden_states=decoder_hidden_states
+            )
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
             
@@ -1406,13 +1522,14 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
                     if self.config.is_encoder_decoder:
                         cross_attentions += (outputs.cross_attentions,)
 
-                if output_hidden_states:
+                if True:
                     decoder_hidden_states += (
                         (outputs.decoder_hidden_states,)
                         if self.config.is_encoder_decoder
                         else (outputs.hidden_states,)
                     )
 
+            decoder_hidden_states = torch.cat([decoder_hidden_states, outputs.decoder_hidden_states.unsqueeze(1)], dim=1)
             # argmax
             next_tokens = torch.argmax(next_tokens_scores, dim=-1)
 

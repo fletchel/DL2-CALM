@@ -54,7 +54,10 @@ class AdditionalArguments:
     train_meta_cm_head: Optional[bool] = field(
         default=False, metadata={"help": ("Train cm (confidence measure) head to align last hidden_states when exit_conf_type is set to meta.")}
     )
-        
+    thresholds: Optional[List[float]] = field(
+        default=None, metadata={"help": ("Thresholds for calibration")}
+    )
+
     # shallow-deep framework
     use_shallow_deep: Optional[bool] = field(
         default=False, metadata={"help": ("Use shallow-deep decoder framework in decoder model.")}
@@ -102,6 +105,51 @@ class AdditionalArguments:
     lora_target_modules: Optional[List[str]] = field(
         default=None, metadata={"help": ("Change target modules of lora")}
     )
+    top_propagation: Optional[int] = field(
+        default=None, metadata={"help": ("Number of most probably tokens taken into consideration")}
+    )
+
+    do_cali: Optional[bool] = field(
+        default=False, metadata={"help": ("Calibrate the model for confidence measure.")}
+    )
+    do_cali_with_plot: Optional[bool] = field(
+        default=False, metadata={"help": ("Calibrate the model for confidence measure with plot.")}
+    )
+    calibrate_num_samples : Optional[int] = field(
+        default=100, metadata={"help": ("Number of samples for calibration")}
+    )
+    # calibrate_thresholds : Optional[List[float]] = field(
+    #     default=[0.5, 0.6, 0.7, 0.8, 0.9], metadata={"help": ("Thresholds for calibration")}
+    # )
+    calibrate_delta : Optional[float] = field(
+        default=0.1, metadata={"help": ("Delta for calibration")}
+    )
+    calibrate_epsilon : Optional[float] = field(
+        default=0.05, metadata={"help": ("Epsilon for calibration")}
+    )
+
+    consistency_type: Optional[str] = field(
+        default='textual', metadata={"help": ("Type of consistency ('textual' or 'risk')")}
+    )
+
+
+    do_cali: Optional[bool] = field(
+        default=False, metadata={"help": ("Calibrate the model for confidence measure.")}
+    )
+    # calibrate_thresholds : Optional[List[float]] = field(
+    #     default=[0.5, 0.6, 0.7, 0.8, 0.9], metadata={"help": ("Thresholds for calibration")}
+    # )
+    calibrate_delta : Optional[float] = field(
+        default=0.1, metadata={"help": ("Delta for calibration")}
+    )
+    calibrate_epsilon : Optional[float] = field(
+        default=0.05, metadata={"help": ("Epsilon for calibration")}
+    )
+
+    consistency_type: Optional[str] = field(
+        default='textual', metadata={"help": ("Type of consistency ('textual' or 'risk')")}
+    )
+
 
 def update_autoconfig(config, additional_args, **kwargs):
 
@@ -145,6 +193,7 @@ def update_autoconfig(config, additional_args, **kwargs):
         'exit_min_layer': additional_args.exit_min_layer,
         'train_meta_cm_head': additional_args.train_meta_cm_head,
         'max_answer_length': kwargs.get('max_answer_length', None),
+        'top_propagation': additional_args.top_propagation,
     }
     config.update(early_exit_config)
     

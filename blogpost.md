@@ -68,6 +68,19 @@ Improving the efficiency of LLMs is being studied in several different ways. Mod
 
 The approach studied in the CALM paper is *early exiting*, where the model can decide to stop processing a token without having passed the token through every layer of the transformer. Early exiting was first proposed for transformers used for classification by Schwartz et al. (2020) [3]. Then, Xin et al. (2021) introduced BERxiT to deal with more general tasks than just classification [2]. Recently, it has been shown that the top-ranked prediction for a token often does not change after a certain layer [8], motivating both the CALM paper and our choice for an extension in which we decide to only propagate the top-ranked tokens to subsequent layers.
 
+# Experiments
+Mention here that all experiments only used the CNN/Daily Mail dataset and the T5-small model.
+
+## Calibration
+For the calibration we ran the calibiration as descripted in the paper on the following confidence measures:
+- Classifier
+- Softmax
+- Transformer (512 dim)
+- Top-k propagation (our extension measure)
+
+For each of these we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
+We also provide candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
+
 # Review
 
 Further gains in the efficiency of autoregressive LLMs would increase the accessibility of these models for applications in both academia and industry. Although the CALM framework already provides a noticeable improvement in the inference time, the best performing confidence estimation method &mdash; **softmax response** &mdash; introduces significant computational overhead by requiring multiplication of the tokens with a weight matrix of the final layer MLP. This leads to $\mathcal{O}(VD)$ time complexity, where the $V$ denotes the output vocabulary size and $D$ is the dimensionality of hidden representation. In extreme cases, the inference may take more time compared to the original model for difficult tokens where the required confidence threshold is exceeded only in the later layers.
@@ -136,7 +149,7 @@ for decoder_layer in decoder:
 
 Although matrix-vector multiplication involving a full weight matrix of the final MLP has a time complexity $O(D \times V)$, it should be remembered that this operation can be efficiently parallelised on GPUs; thus, the actual contribution of this operation to the confidence estimation process is likely smaller than it could be expected looking at the time complexity. Beyond a certain point, further decrease in the matrix size may not even lead to efficiency improvements as the multiplication will not be utilising all of the compute units of the GPU. However, other operations within **softmax response** method, such as softmax calculation and finding 2 highest probabilities, also depend on the vocabulary size and will benefit from smaller number of logits to consider.
 
-The presented pseudo-code shows one potential problem with our extension $mdash; while we successfully managed to reduce the time complexity for all operations involved in confidence estimation starting from the second layer, it is now necessary to find the probabilities and indices corresponding to $K$ most probable tokens in layer one. Additionally, the rows corresponding to these tokens must be extracted from the weight matrix of the final MLP, requiring additional time. As a consequence, we expect our method to increase the time needed for confidence estimation at the first layer, but decrease it significantly for the layers downstream. The improvement coming from this method depends then both on the number of propagated tokens K as well as the expected number of layers that will be traversed before the models is confident enough to output a token $mdash; if the number of traversed layers is small enough, the additional time needed for calculating the confidence at the first layer may outweight the benefits of decreasing it at further layers.
+The presented pseudo-code shows one potential problem with our extension &mdash; while we successfully managed to reduce the time complexity for all operations involved in confidence estimation starting from the second layer, it is now necessary to find the probabilities and indices corresponding to $K$ most probable tokens in layer one. Additionally, the rows corresponding to these tokens must be extracted from the weight matrix of the final MLP, requiring additional time. As a consequence, we expect our method to increase the time needed for confidence estimation at the first layer, but decrease it significantly for the layers downstream. The improvement coming from this method depends then both on the number of propagated tokens K as well as the expected number of layers that will be traversed before the models is confident enough to output a token &mdash; if the number of traversed layers is small enough, the additional time needed for calculating the confidence at the first layer may outweight the benefits of decreasing it at further layers.
 
 ## Attention-based classifier 
 
@@ -161,7 +174,7 @@ Our codebase was built off an implementation used in the Fast Robust Early Exiti
 
 We made use of the ROUGE-L score [13] as our primary performance metric. This is a standard metric for evaluating summarization performance.
 
-We began by finetuning the model on the summarization dataset for 3 epochs. [results]
+We began by finetuning the model on the summarization dataset for 3 epochs. Finetuning brought our model from a ROUGE-LSUM of **26.73** to **29.67**.
 
 ## Top-k propagation
 
@@ -198,26 +211,85 @@ In order to compare the confidence methods used, we perform evaluation for each 
   - how ROUGE varies with the average number of decoder blocks used (figure 4)
   - how ROUGE varies with the average evaluation runtime normalised by generation length (figure 5).
   
-In the latter plot, we normalise by generation length as this varies substantially across different setups and confounds the eval runtime.
+In the latter plot, we normalise by generation length as this varies substantially across different setups and confounds the eval runtime. Note that softmax (2000) and softmax (10000) refer to the softmax reponse confidence method with top 2000 token propagation and top 10000 token propagation respectively.
 
-![Figure4](https://github.com/fletchel/DL2-CALM/assets/70916204/72cd7876-0d3c-428c-82eb-d695d3fc2791)
-Figure 4. ROUGE vs. average number of decoder blocks used by confidence method [add softmax-2000/softmax-10000 when available]
+![Figure 4](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
+Figure 4. ROUGE vs. average number of decoder blocks used by confidence method
 
-Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers.
+Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
 
 We see our classifiers exhibit approximately the expected pattern in performance (namely that the linear classifier performs worst while the two transformer classifiers perform best). Surprisingly, we find that all of these classifiers compare unfavourably with static exiting. We suspect that this is because our classifiers are substantially undertrained due to compute constraints. We had to train each classifier on only about 25% of the available data (in other words, we trained for approximately 0.25 epochs). In the original paper, the classifiers perform only marginally better than static exiting, so it seems plausible that undertraining is sufficient to explain the lackluster performance of our classifiers. Nevertheless, we find that our proposed transformer extension performs better than the linear classifier described in the original paper.
 
+![Figure 5](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
 
-![Figure5](https://github.com/fletchel/DL2-CALM/assets/70916204/b7b69852-9067-4786-b2b6-86eb53046e3a)
-Figure 5. Rouge vs. average evaluation runtime normalised for generation length [add softmax-2000/softmax-10000 when available]
+Figure 5. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
 
-In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime (normalised for generation length) in Figure 5. Note that these times are likely quite noisy as the cluster we ran experiments on experienced differing loads at different times.
+In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generationl lengths. However, some patterns are evident.
 
-Here we again see that the softmax response performs the best, with the best ROUGE performance across all runtimes. The classifiers again perform worse than static exiting. In particular, it is notable that the additional inference time added by the transformer classifiers appears to cancel out the improvement in performance as measured by ROUGE. Indeed, the MLP classifier appears to perform the best of these classifiers for a given runtime. This may mean that the MLP classifier strikes the most ideal balance between classifier capacity and time complexity of the classifiers tested.
+First of all, static exiting performs best for any given runtime. We believe this is because there is a substantial amount of overhead involved in early exiting, and due to the fact that we use a small model, this overhead dominates the inference speed improvement of early exiting. No wall clock times are reported in the original paper, so we are unable to verify whether the original authors identified a similar phenomenon. 
+
+Beyond static exiting, we see that softmax response has the fastest runtimes for high ROUGE values, and that the (non-linear) classifiers perform the best for middling ROUGE values (<25).
 
 
 Finally, we compare the performance of the **calibration method** with a naive confidence threshold selection method. [INSERT TABLE]
 
+
+## Calibration 
+
+### Risk consistency
+We performed experiments to replicate the calibration done in the paper for local early existence. 
+Figure x shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency.
+We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2.
+This is similar to that observed by the authors but with a more tempered increase in RougeL values and an earlier plateau. This is likely due to the smaller model that we used.
+
+![image info](./plots/calibration/delta_vs_dissimilarity_risk.png)
+
+Figure z shows the delta values plotted against the exit layer for diffierent measures. We see that the exit layer decreases as delta increases, which is consistent with the authors' findings.
+
+![image info](./plots/calibration/delta_vs_exit_layers_risk.png)
+Figure z 
+### Textual consistency
+
+Figure m shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors.
+We do not see a convergence of consistency values as delta increases, which is likely due to the smaller model that we used.
+![image info](./plots/calibration/delta_vs_dissimilarity_textual.png)
+Figure m
+
+Figure p shows the delta values plotted against the exit layer for different measures.
+We see that as delta increases, the exit layer decreases; this general trend aligns with the authors'.
+![image info](./plots/calibration/delta_vs_exit_layers_textual.png)
+Figure p
+
+## Classifying with Top-k propagation
+
+### Sample size effects
+![image info](./plots/calibration/calibration_sample_size_effects.png )
+We explored the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
+The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. This suggests that the increase in sample size effectively offsets the noisiness of the different samples from the validation set, providing a precise measure of dissimilarity. 
+### Exit layer results
+
+![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
+
+
+
+In Table KL, you can see a summary of the results of exit layers for different consistency types and measures.
+We see, as we would expect, that the exit layer decreases with an increasing delta value for both consistency types and measures.
+
+|    |   delta | Consistency Type    | Measure    | Avg Exit Layers |
+|---:|--------:|:--------------------|:-----------|------------------:|
+|  0 |     0.2 | Textual consistency | softmax    |                 6 |
+|  1 |     0.4 | Textual consistency | softmax    |           3.61893 |
+|  2 |     0.6 | Textual consistency | softmax    |           1.91434 |
+|  3 |     0.2 | Risk consistency    | softmax    |           2.55093 |
+|  4 |     0.4 | Risk consistency    | softmax    |           1.23485 |
+|  5 |     0.6 | Risk consistency    | softmax    |           1.23485 |
+|  6 |     0.2 | Textual consistency | classifier |                 6 |
+|  7 |     0.4 | Textual consistency | classifier |           5.39863 |
+|  8 |     0.6 | Textual consistency | classifier |           3.84354 |
+|  9 |     0.2 | Risk consistency    | classifier |                 6 |
+| 10 |     0.4 | Risk consistency    | classifier |           1.63859 |
+| 11 |     0.6 | Risk consistency    | classifier |                 1 |
+Table KL
 
 # Conclusion
 ```Conclude```

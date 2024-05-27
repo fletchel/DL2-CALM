@@ -1,0 +1,1 @@
+{"metrics": [{"predict_rouge1": 29.4977, "predict_rouge2": 11.5362, "predict_rougeL": 21.1409, "predict_rougeLsum": 26.4453, "predict_gen_len": 58.5, "predict_runtime": 4.9705, "predict_samples_per_second": 4.024, "predict_steps_per_second": 4.024, "predict_block_avg": 4.80085470085429}], "deltas": [0.3], "L_vals": [0.07968644903735678], "lambdas": [0.6]}
