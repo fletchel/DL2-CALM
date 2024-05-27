@@ -161,7 +161,7 @@ Our codebase was built off an implementation used in the Fast Robust Early Exiti
 
 We made use of the ROUGE-L score [13] as our primary performance metric. This is a standard metric for evaluating summarization performance.
 
-We began by finetuning the model on the summarization dataset for 3 epochs. [results]
+We began by finetuning the model on the summarization dataset for 3 epochs. Finetuning brought our model from a ROUGE-LSUM of **26.73** to **29.67**.
 
 ## Top-k propagation
 
@@ -200,15 +200,14 @@ In order to compare the confidence methods used, we perform evaluation for each 
   
 In the latter plot, we normalise by generation length as this varies substantially across different setups and confounds the eval runtime. Note that softmax (2000) and softmax (10000) refer to the softmax reponse confidence method with top 2000 token propagation and top 10000 token propagation respectively.
 
-![output (9)](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
+![Figure 4](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
 Figure 4. ROUGE vs. average number of decoder blocks used by confidence method
 
 Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
 
 We see our classifiers exhibit approximately the expected pattern in performance (namely that the linear classifier performs worst while the two transformer classifiers perform best). Surprisingly, we find that all of these classifiers compare unfavourably with static exiting. We suspect that this is because our classifiers are substantially undertrained due to compute constraints. We had to train each classifier on only about 25% of the available data (in other words, we trained for approximately 0.25 epochs). In the original paper, the classifiers perform only marginally better than static exiting, so it seems plausible that undertraining is sufficient to explain the lackluster performance of our classifiers. Nevertheless, we find that our proposed transformer extension performs better than the linear classifier described in the original paper.
 
-
-![output (8)](https://github.com/fletchel/DL2-CALM/assets/70916204/95d0a69f-031d-40cc-bb04-e7a11df8334d)
+![Figure 5](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
 
 Figure 5. Rouge vs. evaluation runtime
 
