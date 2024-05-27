@@ -19,16 +19,16 @@ In the experiments shown in CALM paper, **softmax response** consistently outper
 
 Besides proposing a new early-exiting mechanism via the confidence measures on intermediate decoder tokens as described above, the paper also presents a statistical procedure which allows the implementer to obtain probabilistic guarantees on the disparity between the generations of the full LLM and the early exiting LLM.
 
-To make this more precise, let $S_{cal} = (P_i)_{i \in [n]}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t<m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
+To make this more precise, let $S_{cal} = (P_i)\_{i \in [n]}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t &lt m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
 
-The key idea of early-exiting is to use some earlier decoder state $d_t^i$ with $i<L$ to obtain this vocabulary distribution. We use some earlier decoder state $d_t^i$ if its local exiting threshold $\lambda_t^i$ is exceeded by the local confidence score $c_t^i$. Several ways of obtaining this local confidence score have been discussed above.
+The key idea of early-exiting is to use some earlier decoder state $d_t^i$ with $i &lt L$ to obtain this vocabulary distribution. We use some earlier decoder state $d_t^i$ if its local exiting threshold $\lambda_t^i$ is exceeded by the local confidence score $c_t^i$. Several ways of obtaining this local confidence score have been discussed above.
 
 We now turn to the problem of determining $\lambda$. There are two disparities we account for between early-exited and full generations: textual consistency and risk consistency. They are defined as follows.
 
-Let $P^*$ be an i.i.d prompt, and let $Y_{early}=LLM_{early}(P^*),\ Y_{full} = LLM_{full}(P^*)$. We say $Y_{early}$ is *textually consistent* with $Y_{full}$ if, given a bounded dissimilarity function $\mathcal{D}$, we have that the dissimilarity is no more than a user-specified tolerance $\delta$ in expectation with high probability:
+Let $P^\*$ be an i.i.d prompt, and let $Y_{early}=LLM_{early}(P^\*),\ Y_{full} = LLM_{full}(P^*)$. We say $Y_{early}$ is *textually consistent* with $Y_{full}$ if, given a bounded dissimilarity function $\mathcal{D}$, we have that the dissimilarity is no more than a user-specified tolerance $\delta$ in expectation with high probability:
 
 $$
-\mathbb{P}(\mathbb{E}[\mathcal{D}(Y_{early},Y_{full})]\leq \delta)\geq 1- \varepsilon
+\mathbb{P}(\mathbb{E}\[\mathcal{D}(Y_{early},Y_{full})\]\leq \delta)\geq 1- \varepsilon
 $$
 
 for $\varepsilon \in (0,1)$. To define *risk consistency*, we require a dataset which also comes with labels/targets. Here $S_{cal}=(P_i,Z_i)_{i \in [n]}$. Given a bounded risk function $\mathcal{R}$, we have risk consistency if 
@@ -72,6 +72,10 @@ The approach studied in the CALM paper is *early exiting*, where the model can d
 
 Further gains in the efficiency of autoregressive LLMs would increase the accessibility of these models for applications in both academia and industry. Although the CALM framework already provides a noticeable improvement in the inference time, the best performing confidence estimation method --- **softmax response** --- introduces significant computational overhead by requiring multiplication of the tokens with a weight matrix of the final layer MLP. This leads to $\mathcal{O}(VD)$ time complexity, where the $V$ denotes the output vocabulary size and $D$ is the dimensionality of hidden representation. In extreme cases, the inference may take more time compared to the original model for difficult tokens where the required confidence threshold is exceeded only in the later layers.
 
+![Inference time for baseline T5-small and CALM](https://github.com/fletchel/DL2-CALM/assets/34794757/195f07cd-437e-4f00-99b0-3eb3de806416)
+
+The above plot shows that even when using a high confidence threshold of $\lambda = 0.9$, CALM with **softmax response** confidence estimation can lead to a noticeable improvement in the inference times without much decrease to $\text{ROUGE-L}_{sum}$ scores. However, it can be observed that over 20% of the inference time is spent on confidence estimation --- if the model's predictions were more uncertain and the average number of layers after which the prediction is returned would be higher, it would happen that the prediction time for CALM model would exceed that of the baseline model. Additional attention should then be given to reducing the time needed for confidence estimation when a higher number of layers is need to be traversed before obtaining confident predictions.
+
 Additionally, the impact of analysing the full history of representations generated at previous layers rather than only the current layer has not been analysed by the authors of CALM. Out of the three confidence estimation methods, two of them (**softmax response** and **early-exit classifier**) utilise only the latest hidden representation, while **hidden-state saturation** takes the outputs of two most recent layers into consideration. However, it remains to be seen whether utilisation of the full history of generation hidden-states may prove beneficial to the performance of early-exit methods, especially for models consisting of many layers.
 
 ![CALM diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/01f461b7-7296-41d5-85c0-84c7dbba7441)
@@ -83,9 +87,7 @@ Lastly, the original method employs a complex calibration procedure for finding 
 
 Our works consists of three main contributions to the CALM framework, each focusing on one of the weaknesses described in the previous section.
 
-The first of our contributions --- **top-k token propagation** --- addresses the problem of the computational overhead within **softmax response** confidence estimation method by selecting the $K$ tokens with the highest probability values after the output of the , and then only considering these tokens downstream. More precisely, 
-
-$\text{top-}K$ most probable tokens after the first layer and computing only the logits corresponding to these tokens in the following layers. With $K << V$, we believe that this change should lead to a noticeable decrease in the time spent on confidence estimation. 
+The first of our contributions --- **top-k token propagation** --- addresses the problem of the computational overhead within **softmax response** confidence estimation method by selecting the $K$ tokens with the highest probability values after the output of the , and then only considering these tokens downstream. More precisely, top $K$ most probable tokens after the first layer and computing only the logits corresponding to these tokens in the following layers. With $K << V$, we believe that this change should lead to a noticeable decrease in the time spent on confidence estimation. 
 
 **ADD A SNIPPET OF CODE COMPARED WITH THE NORMAL WORKFLOW**
 
