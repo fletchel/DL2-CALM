@@ -232,10 +232,6 @@ Beyond static exiting, we see that softmax response has the fastest runtimes for
 
 Note also that the odd appearance of the curves near the bottom of the ROUGE range is because low confidence thresholds tend to lead to bad ROUGE scores and very long generations - therefore the decrease in inference time per token is drowned out by the increase in generation length. It is unclear why low confidence thresholds tend to lead to long generations, but this pattern was also observed by the authors of FREE [12].
 
-
-Finally, we compare the performance of the **calibration method** with a naive confidence threshold selection method. [INSERT TABLE]
-
-
 ## Calibration 
 
 ### Risk consistency
