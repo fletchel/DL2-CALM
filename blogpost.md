@@ -102,9 +102,9 @@ In addition, we perform experiments to investigate the improvement in performanc
 
 ## Setup
 
-We perform all of our experiments using a T5-small model [ref] and the CNN/DM summarization dataset. T5-small is an encoder-decoder model which has been trained on a range of tasks, including summarization. The CNN/DM dataset consists of approximately 300,000 news articles and corresponding summaries. We chose to use this model and dataset as they were used in the original paper, and we wanted as close a comparison as possible.
+We perform all of our experiments using a T5-small model [9] and the CNN/DM summarization dataset [10]. T5-small is an encoder-decoder model which has been trained on a range of tasks, including summarization, and performs well on them [11]. The CNN/DM dataset consists of approximately 300,000 news articles and corresponding summaries. We chose to use this model and dataset as they were used in the original paper, and we wanted as close a comparison as possible.
 
-We made use of the ROUGE-L score [ref] as our primary performance metric. This is a standard metric for evaluating summarization performance.
+We made use of the ROUGE-L score [12] as our primary performance metric. This is a standard metric for evaluating summarization performance.
 
 We began by finetuning the model on the summarization dataset for 3 epochs. [results]
 
@@ -119,9 +119,9 @@ We implemented four types of confidence classifier. These were as follows
 - Transformer (64 dim)
 - Transformer (512 dim)
 
-The linear classifier is identical to the ``early-exit classifier" used in the original paper. It consists of a simple linear layer of shape $(d_{model}, 2)$, sending hidden states to confidence logits.
+The linear classifier is identical to the "early-exit classifier" used in the original paper [4]. It consists of a simple linear layer of shape $(d_{model}, 2)$, sending hidden states to confidence logits.
 
-The MLP classifier instead consists of a simple one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity [ref].
+The MLP classifier instead consists of a simple one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity [13].
 
 The transformer classifiers consisted of a single attention layer followed by a one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity. We trained one transformer with a projection from $d_{model} = 512$ down to $64$ in the attention layer and one without this projection. We did this to investigate the time/performance tradeoff of a reduction in the dimension of the attention layer.
 
@@ -156,7 +156,7 @@ We see our classifiers exhibit approximately the expected pattern in performance
 ![Figure5](https://github.com/fletchel/DL2-CALM/assets/70916204/b7b69852-9067-4786-b2b6-86eb53046e3a)
 Figure 5. Rouge vs. average evaluation runtime normalised for generation length [add softmax-2000/softmax-10000 when available]
 
-In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime (normalised for generation length) in Figure 5. Note that these times are likely quite noisy as the cluster we ran experiments on likely experienced differing loads at different times.
+In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime (normalised for generation length) in Figure 5. Note that these times are likely quite noisy as the cluster we ran experiments on experienced differing loads at different times.
 
 Here we again see that the softmax response performs the best, with the best ROUGE performance across all runtimes. The classifiers again perform worse than static exiting. In particular, it is notable that the additional inference time added by the transformer classifiers appears to cancel out the improvement in performance as measured by ROUGE. Indeed, the MLP classifier appears to perform the best of these classifiers for a given runtime. This may mean that the MLP classifier strikes the most ideal balance between classifier capacity and time complexity of the classifiers tested.
 
@@ -187,3 +187,30 @@ Finally, we compare the performance of the **calibration method** with a naive c
 [7] G. Hinton, O. Vinyals, and J. Dean, “Distilling the Knowledge in a Neural Network.” arXiv, Mar. 09, 2015. doi: 10.48550/arXiv.1503.02531.
 
 [8] M. Geva, A. Caciularu, K. Wang, and Y. Goldberg, “Transformer Feed-Forward Layers Build Predictions by Promoting Concepts in the Vocabulary Space,” in Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing, Y. Goldberg, Z. Kozareva, and Y. Zhang, Eds., Abu Dhabi, United Arab Emirates: Association for Computational Linguistics, Dec. 2022, pp. 30–45. doi: 10.18653/v1/2022.emnlp-main.3.
+
+[9] Adam Roberts, Hyung Won Chung, Anselm Levskaya, Gaurav Mishra, James Bradbury, Daniel
+Andor, Sharan Narang, Brian Lester, Colin Gaffney, Afroz Mohiuddin, Curtis Hawthorne, Aitor
+Lewkowycz, Alex Salcianu, Marc van Zee, Jacob Austin, Sebastian Goodman, Livio Baldini
+Soares, Haitang Hu, Sasha Tsvyashchenko, Aakanksha Chowdhery, Jasmijn Bastings, Jannis
+Bulian, Xavier Garcia, Jianmo Ni, Andrew Chen, Kathleen Kenealy, Jonathan H. Clark, Stephan
+Lee, Dan Garrette, James Lee-Thorp, Colin Raffel, Noam Shazeer, Marvin Ritter, Maarten
+Bosma, Alexandre Passos, Jeremy Maitin-Shepard, Noah Fiedel, Mark Omernick, Brennan
+Saeta, Ryan Sepassi, Alexander Spiridonov, Joshua Newlan, and Andrea Gesmundo. Scaling
+up models and data with t5x and seqio. arXiv preprint arXiv:2203.17189, 2022. URL
+https://arxiv.org/abs/2203.17189.
+
+[10] Karl Moritz Hermann, Tomas Kocisky, Edward Grefenstette, Lasse Espeholt, Will
+Kay, Mustafa Suleyman, and Phil Blunsom. Teaching machines to read and comprehend. In C. Cortes, N. Lawrence, D. Lee, M. Sugiyama, and R. Garnett, editors, Advances in Neural Information Processing Systems, volume 28. Curran Associates, Inc., 2015. URL https://proceedings.neurips.cc/paper/2015/file/
+afdec7005cc9f14302cd0474fd0f3c96-Paper.pdf.
+
+[11] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena,
+Yanqi Zhou, Wei Li, and Peter J. Liu. Exploring the limits of transfer learning with a unified
+text-to-text transformer. 2019.
+
+[12] Chin-Yew Lin. Rouge: A package for automatic evaluation of summaries. In Text summarization
+branches out, pages 74–81, 2004.
+
+[13] Agarap, Abien Fred. "Deep learning using rectified linear units (relu)." arXiv preprint arXiv:1803.08375 (2018).
+
+
+
