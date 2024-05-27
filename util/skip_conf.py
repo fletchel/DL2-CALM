@@ -95,7 +95,7 @@ def get_skip_mask(
     pos_time: int = 1,
     adapt_threshold: float = None,
     return_conf=False,
-    all_decoder_states = None
+    all_decoder_states = None,
     sorted_logits=False,
 ):
 

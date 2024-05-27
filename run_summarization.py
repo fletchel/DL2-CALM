@@ -640,8 +640,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         epsilon = additional_args.calibrate_epsilon
         consistency_type = additional_args.consistency_type
 
-        # deltas = np.arange(0, 1.1, 0.1)
-        deltas = [.3]
+        deltas = np.arange(0, 1.1, 0.1)
         exit_layer_metrics = []
         L_vals = []
         lambdas = []
@@ -692,15 +691,10 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
         results['deltas'] = list(deltas)
         results['L_vals'] = L_vals
         results['lambdas'] = lambdas
-
+        results['model_details'] = model.config.to_dict()
+        results['num_calib_samples'] = num_samples
         with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/results.json", "w") as f:
             json.dump(results, f)
-
-        config_details = {}
-        config_details['model_details'] = model.config.to_dict()
-        config_details['additional_args'] = additional_args
-        with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}/data/config_details.json", "w") as f:
-            json.dump(config_details, f)
 
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "summarization"}
     if data_args.dataset_name is not None:
