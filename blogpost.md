@@ -75,7 +75,7 @@ Further gains in the efficiency of autoregressive LLMs would increase the access
 Additionally, the impact of analysing the full history of representations generated at previous layers rather than only the current layer has not been analysed by the authors of CALM. Out of the three confidence estimation methods, two of them (**softmax response** and **early-exit classifier**) utilise only the latest hidden representation, while **hidden-state saturation** takes the outputs of two most recent layers into consideration. However, it remains to be seen whether utilisation of the full history of generation hidden-states may prove beneficial to the performance of early-exit methods, especially for models consisting of many layers.
 
 ![CALM diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/01f461b7-7296-41d5-85c0-84c7dbba7441)
-Figure 2. High-level illustration of confidence methods used in CALM paper [4]
+Figure 2. High-level illustration of softmax reponse/early-exit classifiers
 
 Lastly, the original method employs a complex calibration procedure for finding an exit threshold $\lambda \in [0, 1]$ such that the early-exit predictions remain consistent with respect to the full model. Furthermore, the provided statistical guarantees are unlikely to generalise. The assumption under which the model operates is that the calibration set $S_{cal}$ is representative of the entire distribution of prompts. This is a strong assumption, and in certain situations, it is unlikely to hold. While this may work for cases where the LLM operates on a constrained dataset (for example, an LLM used only to summarise news articles), it will likely not work for LLMs that are used in e.g. chatbots, where users can input any prompt they want, some of which will be out-of-distribution. The statistical guarantees provided by the CALM paper may therefore provide a false sense of confidence in the outputs. Thus, we aim to compare the speed/accuracy tradeoff of a naively selected threshold (i.e. hyperparameter search) with a calibrated threshold, to determine whether the calibration provides a noticeable benefit.
 
@@ -89,14 +89,47 @@ $\text{top-}K$ most probable tokens after the first layer and computing only the
 
 **ADD A SNIPPET OF CODE COMPARED WITH THE NORMAL WORKFLOW**
 
-In our work, we also introduce a method of considering the entire history of hidden states while estimating the confidence by utilising a small **attention-based classifier** following every layer of the full auto-regressive model. This consists of a simple, one layer, attention only transformer whose inputs are *all* of the hidden states at a given layer l. No method for calculating confidence scores used in the original paper makes use of all hidden states at a particular layer, instead only relying on the hidden state at the final position. It seems plausible that making use of the hidden states at every previous position will provide additional useful information about the model's level of confidence. For this reason, we expect it to provide a more robust confidence estimation compared to other methods.
+In our work, we also introduce a method of considering the entire history of hidden states while estimating the confidence by utilising a small **attention-based classifier** following every layer of the full auto-regressive model. This consists of a simple, one layer, attention only transformer (followed by a linear layer or MLP) whose inputs are *all* of the hidden states at a given layer l. No method for calculating confidence scores used in the original paper makes use of all hidden states at a particular layer, instead only relying on the hidden state at the final position. It seems plausible that making use of the hidden states at every previous position will provide additional useful information about the model's level of confidence, because future layers' hidden states at the final position will be affected by earlier positions' hidden states at the current layer. For this reason, we expect it to provide a more robust confidence estimation compared to other methods.
 
-Moreover, the **attention-based classifier** will usually have a lower inference cost when compared to the most robust method in the original paper, the **softmax response**. This is because the time complexity for the **attention-based classifier** will be $\mathcal{O}(D N^2)$, where $N$ is the sequence length and $D$ is the model dimension. The **softmax response**, on the other hand, has a time complexity of $\mathcal{O}(V D)$, where $V$ is the vocabulary size. Therefore we have that for sufficiently small $N$, the **attention-based classifier** will be faster during inference than the **softmax response**, while also potentially providing more robust confidence estimation.
+Moreover, the **attention-based classifier** should usually have a lower inference cost when compared to the most robust method in the original paper, the **softmax response**. This is because the time complexity for the **attention-based classifier** will be $\mathcal{O}(D N^2)$, where $N$ is the sequence length and $D$ is the model dimension. The **softmax response**, on the other hand, has a time complexity of $\mathcal{O}(V D)$, where $V$ is the vocabulary size. Therefore we have that for sufficiently small $N$, the **attention-based classifier** will be faster during inference than the **softmax response**, while also potentially providing more robust confidence estimation.
 
 ![CALM transformer diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/f8855382-5565-47e8-bebf-7a9b5bdd6a31)
-Figure 3. High-level illustration of the proposed attention-based confidence classifier
+Figure 3. High-level illustration of the proposed transformer confidence classifier
 
 In addition, we perform experiments to investigate the improvement in performance due to the calibration method used in the paper over a naive baseline. No such comparison with a naive baseline is done in the original paper, which seems like a significant oversight. The calibration method used in the original paper is fairly complicated and involves non-trivial statistical methods (e.g. multiple hypothesis testing). It also adds a small amount of computational overhead during inference. The authors justify their confidence threshold selection method by saying that having a statistical guarantee of performance is often useful. Our experiments here investigate whethethe calibration method used in the paper is empirically superior to naive confidence threshold selection without use of hypothesis testing. This will allows us to judge the necessity of calibration step when using different confidence estimation methods.
+
+# Experiments
+
+## Setup
+
+We perform all of our experiments using a T5-small model [ref] and the CNN/DM summarization dataset. T5-small is an encoder-decoder model which has been trained on a range of tasks, including summarization. The CNN/DM dataset consists of approximately 300,000 news articles and corresponding summaries. We chose to use this model and dataset as they were used in the original paper, and we wanted as close a comparison as possible.
+
+We made use of the ROUGE-L score [ref] as our primary performance metric. This is a standard metric for evaluating summarization performance.
+
+We began by finetuning the model on the summarization dataset for 3 epochs. [results]
+
+## Top-k propagation
+
+## Classifier training
+
+We implemented four types of confidence classifier. These were as follows
+
+- Linear
+- MLP
+- Transformer (64 dim)
+- Transformer (512 dim)
+
+The linear classifier is identical to the ``early-exit classifier" used in the original paper. It consists of a simple linear layer of shape $(d_{model}, 2)$, sending hidden states to confidence logits.
+
+The MLP classifier instead consists of a simple one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity [ref].
+
+The transformer classifiers consisted of a single attention layer followed by a one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity. We trained one transformer with a projection from $d_{model} = 512$ down to $64$ in the attention layer and one without this projection. We did this to investigate the time/performance tradeoff of a reduction in the dimension of the attention layer.
+
+Each of these classifiers were trained with an "oracle loss". This "oracle loss" is a binary cross-entropy loss with respect to the output of the confidence method, with the target at each layer $l$ being $\delta(\text{argmax}(W_{final}h_{l}) = \text{argmax}(W_{final}h_{final}))$. In other words, the loss aims to train the classifier to output $1$ when the token outputted at the current layer agrees with the final token, and to output $0$ otherwise.
+
+We trained each of these for approx. 0.25 epochs each (due to compute constraints) with the SGD optimizer at a learning rate of $10^{-4}$.
+
+## Calibration
 
 # Results
 ```Results of your work (link that part with the code in the jupyter notebook)```
