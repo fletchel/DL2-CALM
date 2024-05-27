@@ -104,7 +104,9 @@ In addition, we perform experiments to investigate the improvement in performanc
 
 We perform all of our experiments using a T5-small model [9] and the CNN/DM summarization dataset [10]. T5-small is an encoder-decoder model which has been trained on a range of tasks, including summarization, and performs well on them [11]. The CNN/DM dataset consists of approximately 300,000 news articles and corresponding summaries. We chose to use this model and dataset as they were used in the original paper, and we wanted as close a comparison as possible.
 
-We made use of the ROUGE-L score [12] as our primary performance metric. This is a standard metric for evaluating summarization performance.
+Our codebase was built off an implementation used in the Fast Robust Early Exiting paper [12], which had implemented the basic structure of early exiting.
+
+We made use of the ROUGE-L score [13] as our primary performance metric. This is a standard metric for evaluating summarization performance.
 
 We began by finetuning the model on the summarization dataset for 3 epochs. [results]
 
@@ -121,7 +123,7 @@ We implemented four types of confidence classifier. These were as follows
 
 The linear classifier is identical to the "early-exit classifier" used in the original paper [4]. It consists of a simple linear layer of shape $(d_{model}, 2)$, sending hidden states to confidence logits.
 
-The MLP classifier instead consists of a simple one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity [13].
+The MLP classifier instead consists of a simple one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity [14].
 
 The transformer classifiers consisted of a single attention layer followed by a one layer feed-forward neural network with hidden dimension $d_{model}$ and a ReLU non-linearity. We trained one transformer with a projection from $d_{model} = 512$ down to $64$ in the attention layer and one without this projection. We did this to investigate the time/performance tradeoff of a reduction in the dimension of the attention layer.
 
@@ -207,10 +209,12 @@ afdec7005cc9f14302cd0474fd0f3c96-Paper.pdf.
 Yanqi Zhou, Wei Li, and Peter J. Liu. Exploring the limits of transfer learning with a unified
 text-to-text transformer. 2019.
 
-[12] Chin-Yew Lin. Rouge: A package for automatic evaluation of summaries. In Text summarization
+[12] Bae, Sangmin, et al. "Fast and robust early-exiting framework for autoregressive language models with synchronized parallel decoding." arXiv preprint arXiv:2310.05424 (2023).
+
+[13] Chin-Yew Lin. Rouge: A package for automatic evaluation of summaries. In Text summarization
 branches out, pages 74–81, 2004.
 
-[13] Agarap, Abien Fred. "Deep learning using rectified linear units (relu)." arXiv preprint arXiv:1803.08375 (2018).
+[14] Agarap, Abien Fred. "Deep learning using rectified linear units (relu)." arXiv preprint arXiv:1803.08375 (2018).
 
 
 
