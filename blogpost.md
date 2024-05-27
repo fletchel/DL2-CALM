@@ -68,19 +68,6 @@ Improving the efficiency of LLMs is being studied in several different ways. Mod
 
 The approach studied in the CALM paper is *early exiting*, where the model can decide to stop processing a token without having passed the token through every layer of the transformer. Early exiting was first proposed for transformers used for classification by Schwartz et al. (2020) [3]. Then, Xin et al. (2021) introduced BERxiT to deal with more general tasks than just classification [2]. Recently, it has been shown that the top-ranked prediction for a token often does not change after a certain layer [8], motivating both the CALM paper and our choice for an extension in which we decide to only propagate the top-ranked tokens to subsequent layers.
 
-# Experiments
-Mention here that all experiments only used the CNN/Daily Mail dataset and the T5-small model.
-
-## Calibration
-For the calibration we ran the calibiration as descripted in the paper on the following confidence measures:
-- Classifier
-- Softmax
-- Transformer (512 dim)
-- Top-k propagation (our extension measure)
-
-For each of these we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
-We also provide candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
-
 # Review
 
 Further gains in the efficiency of autoregressive LLMs would increase the accessibility of these models for applications in both academia and industry. Although the CALM framework already provides a noticeable improvement in the inference time, the best performing confidence estimation method &mdash; **softmax response** &mdash; introduces significant computational overhead by requiring multiplication of the tokens with a weight matrix of the final layer MLP. This leads to $\mathcal{O}(VD)$ time complexity, where the $V$ denotes the output vocabulary size and $D$ is the dimensionality of hidden representation. In extreme cases, the inference may take more time compared to the original model for difficult tokens where the required confidence threshold is exceeded only in the later layers.
