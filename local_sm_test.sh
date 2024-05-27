@@ -17,7 +17,7 @@ python run_summarization.py \
     --exit_min_layer 1 \
     --calibrate_delta .5 \
     --calibrate_epsilon 0.05 \
-    --consistency_type textual \
+    --consistency_type risk \
     --thresholds 1.0 0.95 0.90 0.85 0.80 0.75 0.70 0.65 0.60 0.55 0.50 0.45 0.40 0.35 0.30 0.25 0.20 0.15 0.10 0.05 \
     --top_propagation 2000  \
     > output_logs/output14.log 2>&1
