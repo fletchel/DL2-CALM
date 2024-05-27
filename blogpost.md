@@ -209,7 +209,7 @@ We see our classifiers exhibit approximately the expected pattern in performance
 
 ![Figure 5](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
 
-Figure 5. Rouge vs. evaluation runtime
+Figure 5. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
 
 In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generationl lengths. However, some patterns are evident.
 
