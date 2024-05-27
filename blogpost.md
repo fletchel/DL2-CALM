@@ -294,7 +294,12 @@ Table KL
 
 
 # Contributions per student
-```Close the notebook with a description of each student's contribution.```
+
+Luan Fletcher - Implemented confidence classifiers (linear, transformer, MLP) and did associated data analysis and writeup
+Konrad Szewczyk - Implemented top-k propagation and did associated data analysis and writeup
+Daniel Goodwin - Implementation and investigation/reproduction of calibration process
+Andrew Heath - Implementation and investigation/reproduction of calibration process
+Robert van der Klis - Reproduction of original paper results and finetuning of models
 
 # References
 [1] T. Brown et al., “Language Models are Few-Shot Learners,” in Advances in Neural Information Processing Systems, Curran Associates, Inc., 2020, pp. 1877–1901. Accessed: May 27, 2024. [Online]. Available: https://papers.nips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html
