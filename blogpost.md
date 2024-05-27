@@ -279,27 +279,15 @@ Figure 4 shows the delta values plotted against the average exit layer for diffe
 </p>
 
 ### Sample size effects
-
-We also investiaged briefly the effects of different samples sizes on the calibration proccess.
-
-Figure 5 shows the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
-The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. 
-<p align="center">
-  <img src="./plots/calibration/calibration_sample_size_effects.png">
-  <br>
-  <em>Figure 5: Effects of sample size on calibration with respect to the dissimilarity metric (risk) </em>
-</p>
-
-
-Shown in Figure 6, we see the effect of a change in sample size on the exit layer in relation to delta. 
-We see that with larger samples, the model exists with lower values of delta, which is what we would expect.
+We also explored the effect of performing calibration using different sample sizes to assess its effect on early exiting. This can be seen in Figure 5:
 
 <p align="center">
   <img src="./plots/calibration/delta_exit_layer_samples_sizes_risk.png">
   <br>
-  <em>Figure 6: Effects of sample size on calibration with respect to the exit layer (risk) </em>
+  <em>Figure 5: Average exit layer vs tolerance for different sample sizes.</em>
 </p>
 
+We observe for larger samples, the early exiting starts earlier. It is relevant to recall here that our methodology for accepting a confidence threshold depends on a hypothesis test confirmed or rejected by a p-value derived from Hoeffding's inequality. As the sample size increases, the difference between the observed dissimilarities and their expected value decreases given our i.i.d statistical assumptions which translates into us rejecting the null hypothesis for higher confidence thresholds. This is what we observe i.e. higher samples mean we start early exiting earlier. This is quite natural: given only a few samples, one cannot confidently accept the empirically observed dissimilarities as representative. 
 
 # Conclusion
 To conclude, for a smaller model than that used in the CALM paper, we reproduced and verified the claims of their calibration process, namely, that their proposed confidence measures can drastically reduce inference time with a tunable risk. We reproduced the finding that the softmax measure was most effective, and observed very similar trends for both textual and risk consistency evolution against tolerance across confident measures.
