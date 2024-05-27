@@ -18,6 +18,7 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
 
     fully_predict_out: PredictionOutput = trainers[0].predict(cali_dataset, metric_key_prefix="predict")
     decoder_output_full = tokenizer.batch_decode(fully_predict_out[0], skip_special_tokens=True)
+
     references = tokenizer.batch_decode(fully_predict_out[1], skip_special_tokens=True)
 
     for i, L_trainer in enumerate(trainers):
@@ -40,7 +41,7 @@ def calibrate(trainers, thresholds, delta, epsilon, cali_dataset, tokenizer, con
         p_j = hoeffding_p_value(L_val, delta, num_samples)
 
         if p_j > epsilon:
-            return lambda_min, early_predict_out[2], L_val
+            return lambda_min, early_predict_out.metrics, L_val
 
         lambda_min = L_trainer.model.config.exit_conf_threshold
 

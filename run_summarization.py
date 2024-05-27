@@ -19,11 +19,10 @@ Fine-tuning the library models for sequence to sequence.
 import json
 import datetime
 from copy import deepcopy
-
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
 import matplotlib.pyplot as plt
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Optional
 from transformers.trainer_utils import PredictionOutput
 
@@ -106,7 +105,7 @@ except (LookupError, OSError):
         nltk.download("punkt", quiet=True)
 
 
-def main(model_args, data_args, training_args, additional_args, model_cls, trainer_cls, jupyter=False):
+def main(model_args, data_args, training_args, additional_args: AdditionalArguments, model_cls, trainer_cls, jupyter=False):
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
     send_example_telemetry("run_summarization", model_args, data_args)
@@ -387,7 +386,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
                 desc="Running tokenizer on train dataset",
             )
 
-    if training_args.do_eval or additional_args.do_cali:
+    if training_args.do_eval:
         max_target_length = data_args.val_max_target_length
         eval_dataset = raw_datasets["validation"]
         if data_args.max_eval_samples is not None:
@@ -711,7 +710,7 @@ def main(model_args, data_args, training_args, additional_args, model_cls, train
 
         config_details = {}
         config_details['model_details'] = model.config.to_dict()
-        config_details['additional_args'] = additional_args
+        config_details['additional_args'] = asdict(additional_args)
         with open(f"./results/{datetime_string}_{consistency_type}_{additional_args.exit_conf_type}_{num_samples}/data/config_details.json", "w") as f:
             json.dump(config_details, f)
 
@@ -744,7 +743,7 @@ if __name__ == "__main__":
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
+    logger.info("Running with torch {}".format(torch.__version__))
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, AdditionalArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,

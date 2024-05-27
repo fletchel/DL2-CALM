@@ -60,6 +60,71 @@ In addition, we perform experiments to investigate the improvement in performanc
 
 We are just in the process of getting results, so sadly we do not have results yet.
 
+## Calibration 
+**TODO** 
+- split the large plot with subplots into actual separate plots.
+
+### Risk
+We performed experiments to replicate the calibration done in the paper for local early existence. 
+Figure x shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency.
+We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2.
+This is similar to that observed by the authors but with a more tempered increase in RougeL values and an earlier plateau. This is likely due to the smaller model that we used.
+
+![image info](./plots/calibration/delta_vs_dissimilarity_risk.png)
+
+[//]: # (Figure y shows the delta values plotted against the found lambda min threshold for a given delta value for risk consistency.)
+
+[//]: # (We observe a decrease in lambda min as delta increases, which is consistent with the authors' findings.)
+
+[//]: # ()
+[//]: # (![image info]&#40;./plots/calibration/delta_vs_lambda_min_risk.png&#41;)
+
+
+Figure z shows the delta values plotted against the exit layer for diffierent measures. We see that the exit layer decreases as delta increases, which is consistent with the authors' findings.
+
+![image info](./plots/calibration/delta_vs_exit_layers_risk.png)
+Figure z 
+### Textual
+
+Figure m shows Textual consistency plotted against delta values, for the shown measure we observe a similar trend to that of the authors.
+We do not not see a convergence of consistency values as delta increases, which is likely due to the smaller model that we used.
+![image info](./plots/calibration/delta_vs_dissimilarity_textual.png)
+Figure m
+
+[//]: # (![image info]&#40;./plots/calibration/delta_vs_lambda_min_textual.png&#41;)
+
+[//]: # ()
+[//]: # ()
+[//]: # (Figure k shows the delta values plotted against the exit layer for different measures. )
+
+Figure p shows the delta values plotted against the exit layer for different measures.
+We see that as delta increases the exit layer decreases,  this general trend aligns with that of the authors.
+![image info](./plots/calibration/delta_vs_exit_layers_textual.png)
+Figure p
+
+### Sample size effects
+![image info](./plots/calibration/calibration_sample_size_effects.png )
+We explored the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
+The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. This suggests that the increase in sample size effectively offsets the noisiness of the different samples from the validation set, providing a precise measure of dissimilarity. 
+
+### Exit layer results
+
+|    |   delta | Consistency Type    | Measure    |   Layers |
+|---:|--------:|:--------------------|:-----------|---------:|
+|  0 |     0.2 | Textual consistency | softmax    |  6       |
+|  1 |     0.4 | Textual consistency | softmax    |  3.61893 |
+|  2 |     0.6 | Textual consistency | softmax    |  1.91434 |
+|  3 |     0.2 | Risk consistency    | softmax    |  2.55093 |
+|  4 |     0.4 | Risk consistency    | softmax    |  1.23485 |
+|  5 |     0.6 | Risk consistency    | softmax    |  1.23485 |
+|  6 |     0.2 | Textual consistency | classifier |  6       |
+|  7 |     0.4 | Textual consistency | classifier |  5.39863 |
+|  8 |     0.6 | Textual consistency | classifier |  3.84354 |
+|  9 |     0.2 | Risk consistency    | classifier |  6       |
+| 10 |     0.4 | Risk consistency    | classifier |  1.63859 |
+| 11 |     0.6 | Risk consistency    | classifier |  1       |
+
+
 # Conclusion
 ```Conclude```
 
