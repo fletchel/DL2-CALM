@@ -291,18 +291,21 @@ Table KL - Summary of Avg Exit Layers for different consistency types and confid
 
 # Conclusion
 
+In this paper, we reproduced and extended the high-level results of Confident Adaptive Language Modelling (CALM) [14] with respect to early-exiting. In particular, we found that the softmax response confidence method provided the best trade-off between speed and performance, and could lead to faster inference for sufficiently large models. We implemented and tested a method to speed up the softmax response through top-k token propagation, further speeding up this method. We also implemented a number of additional confidence classifiers and improved over the linear classifier presented in CALM with MLP/transformer classifiers, although further work must be done to confirm this, as our experiments here were hindered by limited access to compute. 
+
 
 
 # Contributions per student
-Robert van der Klis: 
 
-Luan Fletcher: 
+Luan Fletcher - Implemented confidence classifiers (linear, transformer, MLP) and did associated data analysis and writeup
 
-Daniel Goodwin
+Konrad Szewczyk - Implemented top-k propagation and did associated data analysis and writeup
 
-Andrew Heath
+Daniel Goodwin - Implementation and investigation/reproduction of calibration process
 
-Konrad
+Andrew Heath - Implementation and investigation/reproduction of calibration process
+
+Robert van der Klis - Reproduction of original paper results and finetuning of models
 
 # References
 [1] T. Brown et al., “Language Models are Few-Shot Learners,” in Advances in Neural Information Processing Systems, Curran Associates, Inc., 2020, pp. 1877–1901. Accessed: May 27, 2024. [Online]. Available: https://papers.nips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html
