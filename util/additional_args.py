@@ -105,6 +105,9 @@ class AdditionalArguments:
     lora_target_modules: Optional[List[str]] = field(
         default=None, metadata={"help": ("Change target modules of lora")}
     )
+    top_propagation: Optional[int] = field(
+        default=None, metadata={"help": ("Number of most probably tokens taken into consideration")}
+    )
 
     do_cali: Optional[bool] = field(
         default=False, metadata={"help": ("Calibrate the model for confidence measure.")}
@@ -190,6 +193,7 @@ def update_autoconfig(config, additional_args, **kwargs):
         'exit_min_layer': additional_args.exit_min_layer,
         'train_meta_cm_head': additional_args.train_meta_cm_head,
         'max_answer_length': kwargs.get('max_answer_length', None),
+        'top_propagation': additional_args.top_propagation,
     }
     config.update(early_exit_config)
     

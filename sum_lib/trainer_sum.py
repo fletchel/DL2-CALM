@@ -199,6 +199,14 @@ class SumTrainer(Seq2SeqTrainer):
                     deploy_time[k] = str([str(_v).split('.')[0] for _v in v])
             output.metrics.update(deploy_time)
 
+        if self.model.conf_time_per_layer is not None:
+            conf_time_per_layer = {}
+            for l, t in self.model.conf_time_per_layer.items():
+                if self.model.decoder.block_op[l - 1] == 0:
+                    continue
+                conf_time_per_layer["conf_time_layer_{}".format(l)] = t.total_seconds() / self.model.decoder.block_op[l - 1]
+            output.metrics.update(conf_time_per_layer)
+                
         self.log(output.metrics)
 
         if DebugOption.TPU_METRICS_DEBUG in self.args.debug:
@@ -223,6 +231,7 @@ class SumTrainer(Seq2SeqTrainer):
         Prediction/evaluation loop, shared by `Trainer.evaluate()` and `Trainer.predict()`.
         Works both with or without labels.
         """
+
         args = self.args
 
         prediction_loss_only = prediction_loss_only if prediction_loss_only is not None else args.prediction_loss_only
