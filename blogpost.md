@@ -85,26 +85,26 @@ Lastly, the original method employs a complex calibration procedure for finding 
 
 # Contribution
 
-Our works consists of three main contributions to the CALM framework, each focusing on one of the weaknesses described in the previous section.
+## Top-k token propagation
 
-The first of our contributions &mdash; **top-k token propagation** &mdash; addresses the problem of the computational overhead within **softmax response** confidence estimation method. Following the findings of [8], we start by selecting the $K$ tokens with the highest probability values at the output of the first decoder layer, and then only considering these tokens downstream. More precisely, top $K$ most probable tokens after the first layer and computing only the logits corresponding to these tokens in the following layers. With $K << V$, we believe that this change should lead to a noticeable decrease in the time spent on confidence estimation. 
+The first of our contributions &mdash; **top-k token propagation** &mdash; addresses the problem of the computational overhead within **softmax response** confidence estimation method. Following the findings of [8], it can be expected that even after the first layer a model should be capable of narrowing down the range of probable tokens significantly from the full cardinality of vocabulary set. Therefore, we start by selecting the $K$ tokens with the highest probability values at the output of the first decoder layer, and then only considering these tokens downstream. More precisely, top $K$ most probable tokens after the first layer and computing only the logits corresponding to these tokens in the following layers. With $K << V$, we believe that this change should lead to a noticeable decrease in the time spent on confidence estimation. 
 
 To better illustrate the introduced modifications, we provide the comparison between the high-level pseudo-code of both the original CALM method (**softmax response**) and our **top-k token propagation**:
 ```
 input:
   hidden_states - input token embeddings
   threshold - confidence threshold for early-exit
-  K - number of propagated tokens in our extension
+  K - number of propagated tokens                                         # used in our extension
 
 
-top_k_indices = None                                                      # used for our extension
+top_k_indices = None                                                      # used in our extension
 
 for decoder_layer in decoder:
   hidden_states = pass hidden_states through the decoder_layer
 
 
   === CALM ===
-  logits = process hidden_states using final MLP of the decoder           # O(D x V)
+  logits = process hidden_states using final MLP of the decoder           # O(D x V), highly parallelizable
   probs = computer softmax of logits                                      # O(V)
   top1, top2 = find 2 highest probabilities in probs                      # O(V + 2 log V), based on PyTorch implementation
   confidence = top1 - top2                                                # O(1)
@@ -113,7 +113,7 @@ for decoder_layer in decoder:
 
   === Ours ===
   if top_k_indices is None:                                               # only for the first decoder layer
-    logits = process hidden_states using final MLP of the decoder         # O(D x V)
+    logits = process hidden_states using final MLP of the decoder         # O(D x V), highly parallelizable
     probs = computer softmax of logits                                    # O(V)
     probs, top_k_indices = find K highest probabilities (sorted) and corresponding indices in probs
                                                                           # O(V + K log V), based on PyTorch implementation
@@ -123,7 +123,7 @@ for decoder_layer in decoder:
     W_topk = index K rows from MLP weight matrix using top_k_indices      # O(K)
 
   else:                                                                  
-    logits = W_topk @ hiddden_states                                      # O(D x K)
+    logits = W_topk @ hiddden_states                                      # O(D x K), highly parallelizable
     probs = computer softmax of logits                                    # O(K)
     top1, top2 = find 2 highest probabilities in probs                    # O(K + 2 log K), based on PyTorch implementation
     confidence = top1 - top2                                              # O(1)
@@ -131,14 +131,22 @@ for decoder_layer in decoder:
 
 
   if confidence > threshold:
-    predict the most probably token based on probs
+    output the next token based on probs                                  # use top_k_indices to align K-dimensional logits with the expected output size
 ```
+
+Although matrix-vector multiplication involving a full weight matrix of the final MLP has a time complexity $O(D \times V)$, it should be remembered that this operation can be efficiently parallelised on GPUs; thus, the actual contribution of this operation to the confidence estimation process is likely smaller than it could be expected looking at the time complexity. Beyond a certain point, further decrease in the matrix size may not even lead to efficiency improvements as the multiplication will not be utilising all of the compute units of the GPU. However, other operations within **softmax response** method, such as softmax calculation and finding 2 highest probabilities, also depend on the vocabulary size and will benefit from smaller number of logits to consider.
+
+The presented pseudo-code shows one potential problem with our extension $mdash; while we successfully managed to reduce the time complexity for all operations involved in confidence estimation starting from the second layer, it is now necessary to find the probabilities and indices corresponding to $K$ most probable tokens in layer one. Additionally, the rows corresponding to these tokens must be extracted from the weight matrix of the final MLP, requiring additional time. As a consequence, we expect our method to increase the time needed for confidence estimation at the first layer, but decrease it significantly for the layers downstream. The improvement coming from this method depends then both on the number of propagated tokens K as well as the expected number of layers that will be traversed before the models is confident enough to output a token $mdash; if the number of traversed layers is small enough, the additional time needed for calculating the confidence at the first layer may outweight the benefits of decreasing it at further layers.
+
+## Attention-based classifier 
 
 In our work, we also introduce a method of considering the entire history of hidden states while estimating the confidence by utilising a small **attention-based classifier** following every layer of the full auto-regressive model. This consists of a simple, one layer, attention only transformer whose inputs are *all* of the hidden states at a given layer l. No method for calculating confidence scores used in the original paper makes use of all hidden states at a particular layer, instead only relying on the hidden state at the final position. It seems plausible that making use of the hidden states at every previous position will provide additional useful information about the model's level of confidence. For this reason, we expect it to provide a more robust confidence estimation compared to other methods.
 
 Moreover, the **attention-based classifier** will usually have a lower inference cost when compared to the most robust method in the original paper, the **softmax response**. This is because the time complexity for the **attention-based classifier** will be $\mathcal{O}(D N^2)$, where $N$ is the sequence length and $D$ is the model dimension. The **softmax response**, on the other hand, has a time complexity of $\mathcal{O}(V D)$, where $V$ is the vocabulary size. Therefore we have that for sufficiently small $N$, the **attention-based classifier** will be faster during inference than the **softmax response**, while also potentially providing more robust confidence estimation.
 
 ![CALM transformer diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/f8855382-5565-47e8-bebf-7a9b5bdd6a31)
+
+## Reproduction of the threshold calibration process
 
 In addition, we perform experiments to investigate the improvement in performance due to the calibration method used in the paper over a naive baseline. No such comparison with a naive baseline is done in the original paper, which seems like a significant oversight. The calibration method used in the original paper is fairly complicated and involves non-trivial statistical methods (e.g. multiple hypothesis testing). It also adds a small amount of computational overhead during inference. The authors justify their confidence threshold selection method by saying that having a statistical guarantee of performance is often useful. Our experiments here investigate whethethe calibration method used in the paper is empirically superior to naive confidence threshold selection without use of hypothesis testing. This will allows us to judge the necessity of calibration step when using different confidence estimation methods.
 
