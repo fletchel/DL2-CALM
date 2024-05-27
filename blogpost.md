@@ -288,7 +288,8 @@ We see, as we would expect, that the exit layer decreases with an increasing del
 |  9 |     0.2 | Risk consistency    | classifier |                 6 |
 | 10 |     0.4 | Risk consistency    | classifier |           1.63859 |
 | 11 |     0.6 | Risk consistency    | classifier |                 1 |
-Table KL
+
+Table KL - Summary of Avg Exit Layers for different consistency types and confidence measures.
 
 # Conclusion
 
