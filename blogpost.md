@@ -296,9 +296,13 @@ Table KL
 # Contributions per student
 
 Luan Fletcher - Implemented confidence classifiers (linear, transformer, MLP) and did associated data analysis and writeup
+
 Konrad Szewczyk - Implemented top-k propagation and did associated data analysis and writeup
+
 Daniel Goodwin - Implementation and investigation/reproduction of calibration process
+
 Andrew Heath - Implementation and investigation/reproduction of calibration process
+
 Robert van der Klis - Reproduction of original paper results and finetuning of models
 
 # References
