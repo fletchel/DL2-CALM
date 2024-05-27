@@ -289,7 +289,7 @@ Table KL
 
 # Conclusion
 
-In this paper, we reproduced and extended the high-level results of Confident Adaptive Language Modelling (CALM) [14] with respect to early-exiting. In particular, we found that the softmax response confidence method provided the best trade-off between speed and performance, and could lead to faster inference for sufficiently large models. We implemented and tested a method to speed up the softmax response through top-k token propagation, further speeding up this method. We also implemented a number of additional confidence classifiers and improved over the linear classifier presented in CALM with MLP/transformer classifiers, although further work must be done to confirm this, as our experiments here were hindered by limited access to compute. 
+In this paper, we reproduced and extended the high-level results of Confident Adaptive Language Modelling (CALM) [14] with respect to early-exiting. In particular, we found that the softmax response confidence method provided the best trade-off between speed and performance and could lead to faster inference for sufficiently large models. We implemented and tested a method to speed up the softmax response through top-k token propagation, further speeding up this method. We also implemented a number of additional confidence classifiers and improved over the linear classifier presented in CALM with MLP/transformer classifiers, although further work must be done to confirm this, as our experiments here were hindered by limited access to compute. We also reproduced the calibrations of the original paper finding similar trends to that of the authors.  
 
 
 # Contributions per student
