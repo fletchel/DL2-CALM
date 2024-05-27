@@ -13,6 +13,9 @@ The approach studied in the CALM paper is *early exiting*, where the model can d
 The core idea of *Confident Adaptive Language Modelling" framework is early-exit in the auto-regressive generation task, meaning that the next token $y_{t+1}$ can be chosen without traversing all $N$ layers of the decoder. This can be achieved by outputting the model's prediction $\text{argmax } p(y_{t+1} | d_t^i)$ at the first layer $i < N$  where its confidence is high enough. This requires estimating the confidence of prediction $c_t^i$ at a given layer $i$ and comparing it with a predefined confidence threshold $\lambda$. If $c_t^i > \lambda$, the model's prediction $\text{argmax } p(y_{t+1} | d_t^i)$ at the current layer can be used to generate the next token. Otherwise, the model must compute the next representation $d_t^{i+1}$.
 
 ![Early-exit framework](https://github.com/fletchel/DL2-CALM/assets/34794757/32b36a8d-eaa0-4aa2-8477-0f4042df2515)
+# Experiments
+
+## Calibration
 
 
 The confidence estimation is a crucial element of CALM; an underperforming method may either underestimate confidence --- leading to no computational benefit over the base model --- or overestimate the uncertain prediction, causing the quality of the generated test to deteriorate. The authors of the original work propose three robust confidence estimators:  
@@ -61,10 +64,8 @@ In addition, we perform experiments to investigate the improvement in performanc
 We are just in the process of getting results, so sadly we do not have results yet.
 
 ## Calibration 
-**TODO** 
-- split the large plot with subplots into actual separate plots.
 
-### Risk
+### Risk consistency
 We performed experiments to replicate the calibration done in the paper for local early existence. 
 Figure x shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency.
 We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2.
@@ -72,46 +73,32 @@ This is similar to that observed by the authors but with a more tempered increas
 
 ![image info](./plots/calibration/delta_vs_dissimilarity_risk.png)
 
-[//]: # (Figure y shows the delta values plotted against the found lambda min threshold for a given delta value for risk consistency.)
-
-[//]: # (We observe a decrease in lambda min as delta increases, which is consistent with the authors' findings.)
-
-[//]: # ()
-[//]: # (![image info]&#40;./plots/calibration/delta_vs_lambda_min_risk.png&#41;)
-
-
 Figure z shows the delta values plotted against the exit layer for diffierent measures. We see that the exit layer decreases as delta increases, which is consistent with the authors' findings.
 
 ![image info](./plots/calibration/delta_vs_exit_layers_risk.png)
 Figure z 
-### Textual
+### Textual consistency
 
-Figure m shows Textual consistency plotted against delta values, for the shown measure we observe a similar trend to that of the authors.
-We do not not see a convergence of consistency values as delta increases, which is likely due to the smaller model that we used.
+Figure m shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors.
+We do not see a convergence of consistency values as delta increases, which is likely due to the smaller model that we used.
 ![image info](./plots/calibration/delta_vs_dissimilarity_textual.png)
 Figure m
 
-[//]: # (![image info]&#40;./plots/calibration/delta_vs_lambda_min_textual.png&#41;)
-
-[//]: # ()
-[//]: # ()
-[//]: # (Figure k shows the delta values plotted against the exit layer for different measures. )
-
 Figure p shows the delta values plotted against the exit layer for different measures.
-We see that as delta increases the exit layer decreases,  this general trend aligns with that of the authors.
+We see that as delta increases, the exit layer decreases; this general trend aligns with the authors'.
 ![image info](./plots/calibration/delta_vs_exit_layers_textual.png)
 Figure p
+
+## Classifying with Top-k propagation
 
 ### Sample size effects
 ![image info](./plots/calibration/calibration_sample_size_effects.png )
 We explored the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
 The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. This suggests that the increase in sample size effectively offsets the noisiness of the different samples from the validation set, providing a precise measure of dissimilarity. 
-
 ### Exit layer results
 
-In table KL can see as summary of the results of exit layers for different consistency types and measures.
-We see as we would expect that the exit layer decreases with a increasing delta value for both consistency types and measures.
-
+In Table KL, you can see a summary of the results of exit layers for different consistency types and measures.
+We see, as we would expect, that the exit layer decreases with an increasing delta value for both consistency types and measures.
 
 |    |   delta | Consistency Type    | Measure    | Avg Exit Layers |
 |---:|--------:|:--------------------|:-----------|------------------:|
