@@ -19,7 +19,7 @@ In the experiments shown in CALM paper, **softmax response** consistently outper
 
 Besides proposing a new early-exiting mechanism via the confidence measures on intermediate decoder tokens as described above, the paper also presents a statistical procedure which allows the implementer to obtain probabilistic guarantees on the disparity between the generations of the full LLM and the early exiting LLM.
 
-To make this more precise, let $S_{cal} = (P_{i})_{i \in n}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t$ less than $m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
+To make this more precise, let $S_{cal} = (P_{i})\_{i \in n}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t$ less than $m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
 
 The key idea of early-exiting is to use some earlier decoder state $d_t^i$ with $i < L$ to obtain this vocabulary distribution. We use some earlier decoder state $d_t^i$ if its local exiting threshold $\lambda_t^i$ is exceeded by the local confidence score $c_t^i$. Several ways of obtaining this local confidence score have been discussed above.
 
@@ -107,7 +107,7 @@ for decoder_layer in decoder:
 
   === CALM ===
   logits = process hidden_states using final MLP of the decoder           # O(D x V), highly parallelizable
-  probs = computer softmax of logits                                      # O(V)
+  probs = compute softmax of logits                                       # O(V)
   top1, top2 = find 2 highest probabilities in probs                      # O(V + 2 log V), based on PyTorch implementation
   confidence = top1 - top2                                                # O(1)
   === CALM ===
@@ -116,7 +116,7 @@ for decoder_layer in decoder:
   === Ours ===
   if top_k_indices is None:                                               # only for the first decoder layer
     logits = process hidden_states using final MLP of the decoder         # O(D x V), highly parallelizable
-    probs = computer softmax of logits                                    # O(V)
+    probs = compute softmax of logits                                     # O(V)
     probs, top_k_indices = find K highest probabilities (sorted) and corresponding indices in probs
                                                                           # O(V + K log V), based on PyTorch implementation
     top1, top2 = chose the top 2 elements from the sorted list            # O(1)
@@ -178,8 +178,6 @@ For the calibration, we ran the calibration as described in the paper on the fol
 For each of these, we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
 We also used candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
 
-## Top-k propagation
-
 ## Classifier training
 
 We implemented four types of confidence classifier. These were as follows
@@ -201,7 +199,7 @@ We trained each of these for approx. 0.25 epochs each (due to compute constraint
 
 # Results
 
-## Top-k propagation 
+## Top-k token propagation 
 First, we compare the performance of the **top-k token propagation** with the original **softmax response** method for different numbers of propagated tokens and confidence thresholds. For both $\lambda = 0.5$ and $\lambda = 0.9$, using only 2000 most probable tokens to compute confidence allowed for an increase in the number of generated tokens per second at a slight cost to the $\text{ROUGE-L}_\text{sum}$ metric. Overall, it is possible to observe the trends we have expected in the **Contribution** section &mdash; the benefits of using our method become more noticeable as greater number of layers needs needs to be traversed to get sufficiently confident prediction
 
 ![Results for selected thresholds](https://github.com/fletchel/DL2-CALM/assets/34794757/86eefd2d-cf96-4745-bf13-cfe540633250)
