@@ -217,21 +217,21 @@ Figure 5. Average time spent on confidence estimation per layer given different 
 
 In order to compare the confidence methods used, we perform evaluation for each method for a wide range of confidence thresholds. We report comparisons in two ways:
 
-  - how ROUGE varies with the average number of decoder blocks used (figure 4)
+  - how ROUGE varies with the average number of decoder blocks used (figure 6)
   - how ROUGE varies with the average evaluation runtime (figure 5).
   
 Note that softmax (2000) and softmax (10000) refer to the softmax response confidence method with top 2000 token propagation and top 10000 token propagation respectively.
 
-![Figure 4](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
-Figure 4. ROUGE vs. average number of decoder blocks used by confidence method
+![Figure 6](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
+Figure 6. ROUGE vs. average number of decoder blocks used by confidence method
 
-Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
+Figure 6 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
 
 We see our classifiers exhibit approximately the expected pattern in performance (namely that the linear classifier performs worst while the two transformer classifiers perform best). Surprisingly, we find that all of these classifiers compare unfavourably with static exiting. We suspect that this is because our classifiers are substantially undertrained due to compute constraints. We had to train each classifier on only about 25% of the available data (in other words, we trained for approximately 0.25 epochs). In the original paper, the classifiers perform only marginally better than static exiting, so it seems plausible that this undertraining is sufficient to explain the lackluster performance of our classifiers. Nevertheless, we find that our proposed transformer extension performs better than the linear classifier described in the original paper.
 
-![Figure 5](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
+![Figure 7](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
 
-Figure 5. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
+Figure 7. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
 
 In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generation lengths. However, some patterns are evident.
 
@@ -244,47 +244,47 @@ Note also that the odd appearance of the curves near the bottom of the ROUGE ran
 ## Calibration 
 The purpose of this section is primarily reproductive, although we also display our contributions where possible. Specifically, for the CNN-DM dataset, we perform the experiments of Appendix B1, albeit with the smaller T5 model as discussed above. As explained in the section summarising the statistical methods of CALM, there are two dissimilarity measures. Throughout all these plots, $\epsilon = 0.05.$ We start with risk:
 ### Risk consistency
- Figure 1 shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency, both the confidence measures of the paper (softmax and vanilla_classifer), as well as our own contributions. We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2. When compared with Figure B2(a) of the paper, we observe identical trends; early growth before stabilisation around a risk dissimilarity of .2. In the paper figure, the risk asymptote is slightly lower at .1, this could be explained by the larger model and more extensive fine-tuning used there.
+ Figure 8 shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency, both the confidence measures of the paper (softmax and vanilla_classifer), as well as our own contributions. We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2. When compared with Figure B2(a) of the paper, we observe identical trends; early growth before stabilisation around a risk dissimilarity of .2. In the paper figure, the risk asymptote is slightly lower at .1, this could be explained by the larger model and more extensive fine-tuning used there.
  
 <p align="center">
   <img src="./plots/calibration/delta_vs_dissimilarity_risk.png">
   <br>
-  <em>Figure 1: Plot of the risk consistency of various models for varying tolerance values δ.</em>
+  <em>Figure 8: Plot of the risk consistency of various models for varying tolerance values δ.</em>
 </p>
 
-Figure 2 shows how the average layer of exit evolves as we increase the tolerance. The softmax performs well here, as we see noticeble speed-up for $\delta \geq .1$ In comparison with Figure B2(a) of the paper, the decrease in exit layer occurs at a slightly higher tolerance value however the overall trends are reproduced.
+Figure 9 shows how the average layer of exit evolves as we increase the tolerance. The softmax performs well here, as we see noticeble speed-up for $\delta \geq .1$ In comparison with Figure B2(a) of the paper, the decrease in exit layer occurs at a slightly higher tolerance value however the overall trends are reproduced.
 
 <p align="center">
   <img src="./plots/calibration/delta_vs_exit_layers_risk.png">
   <br>
-  <em>Figure 2: Plot of the average exit layer of various models for varying tolerance values δ, using risk consistency during calibration.</em>
+  <em>Figure 9: Plot of the average exit layer of various models for varying tolerance values δ, using risk consistency during calibration.</em>
 </p>
 
 ### Textual consistency
 
-Figure 3 shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors. We observe softmax is the best performing confidence measure given a tolerance. For our proposed confidence measure of using an attention based method, and for the authors' classifier, we notice there are datapoints larger than the diagonal. We recall that the statistical method used to determine the confidence threshold doesn't exclude this possiblity, but makes it a low probability event.
+Figure 10 shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors. We observe softmax is the best performing confidence measure given a tolerance. For our proposed confidence measure of using an attention based method, and for the authors' classifier, we notice there are datapoints larger than the diagonal. We recall that the statistical method used to determine the confidence threshold doesn't exclude this possiblity, but makes it a low probability event.
 
 <p align="center">
   <img src="./plots/calibration/delta_vs_dissimilarity_textual.png">
   <br>
-  <em>Figure 3: Plot of the dissimilarity of various models for varying tolerance values δ</em>
+  <em>Figure 10: Plot of the dissimilarity of various models for varying tolerance values δ</em>
 </p>
 
-Figure 4 shows the delta values plotted against the average exit layer for different measures. In the authors' figure B1(a), both the softmax and classifier measures average exit layer immediately descend for non-zero tolerance levels. We observe a difference here, in that for all measures, the tolerance must be larger than .2 before we begin to observe a decrease in the mean exit layer. This may again reflect the difference in fine-tuning, which could manifest in earlier, faster converging decoder states. 
+Figure 11 shows the delta values plotted against the average exit layer for different measures. In the authors' figure B1(a), both the softmax and classifier measures average exit layer immediately descend for non-zero tolerance levels. We observe a difference here, in that for all measures, the tolerance must be larger than .2 before we begin to observe a decrease in the mean exit layer. This may again reflect the difference in fine-tuning, which could manifest in earlier, faster converging decoder states. 
 
 <p align="center">
   <img src="./plots/calibration/delta_vs_exit_layers_textual.png">
   <br>
-  <em>Figure 4: Plot of the average layer of exit across various confidence measures for varying tolerance values δ, using textual dissimilarity.</em>
+  <em>Figure 12: Plot of the average layer of exit across various confidence measures for varying tolerance values δ, using textual dissimilarity.</em>
 </p>
 
 ### Sample size effects
-We also explored the effect of performing calibration using different sample sizes to assess its effect on early exiting. This can be seen in Figure 5:
+We also explored the effect of performing calibration using different sample sizes to assess its effect on early exiting. This can be seen in Figure 13:
 
 <p align="center">
   <img src="./plots/calibration/delta_exit_layer_samples_sizes_risk.png">
   <br>
-  <em>Figure 5: Average exit layer vs tolerance for different sample sizes.</em>
+  <em>Figure 13: Average exit layer vs tolerance for different sample sizes.</em>
 </p>
 
 We observe for larger samples, the early exiting starts earlier. It is relevant to recall here that our methodology for accepting a confidence threshold depends on a hypothesis test confirmed or rejected by a p-value derived from Hoeffding's inequality. As the sample size increases, the difference between the observed dissimilarities and their expected value decreases given our i.i.d statistical assumptions which translates into us rejecting the null hypothesis for higher confidence thresholds. This is what we observe i.e. higher samples mean we start early exiting earlier. This is quite natural: given only a few samples, one cannot confidently accept the empirically observed dissimilarities as representative. 
