@@ -145,22 +145,25 @@ In order to compare the confidence methods used, we perform evaluation for each 
   - how ROUGE varies with the average number of decoder blocks used (figure 4)
   - how ROUGE varies with the average evaluation runtime normalised by generation length (figure 5).
   
-In the latter plot, we normalise by generation length as this varies substantially across different setups and confounds the eval runtime.
+In the latter plot, we normalise by generation length as this varies substantially across different setups and confounds the eval runtime. Note that softmax (2000) and softmax (10000) refer to the softmax reponse confidence method with top 2000 token propagation and top 10000 token propagation respectively.
 
-![Figure4](https://github.com/fletchel/DL2-CALM/assets/70916204/72cd7876-0d3c-428c-82eb-d695d3fc2791)
-Figure 4. ROUGE vs. average number of decoder blocks used by confidence method [add softmax-2000/softmax-10000 when available]
+![output (9)](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
+Figure 4. ROUGE vs. average number of decoder blocks used by confidence method
 
-Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers.
+Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
 
 We see our classifiers exhibit approximately the expected pattern in performance (namely that the linear classifier performs worst while the two transformer classifiers perform best). Surprisingly, we find that all of these classifiers compare unfavourably with static exiting. We suspect that this is because our classifiers are substantially undertrained due to compute constraints. We had to train each classifier on only about 25% of the available data (in other words, we trained for approximately 0.25 epochs). In the original paper, the classifiers perform only marginally better than static exiting, so it seems plausible that undertraining is sufficient to explain the lackluster performance of our classifiers. Nevertheless, we find that our proposed transformer extension performs better than the linear classifier described in the original paper.
 
 
-![Figure5](https://github.com/fletchel/DL2-CALM/assets/70916204/b7b69852-9067-4786-b2b6-86eb53046e3a)
-Figure 5. Rouge vs. average evaluation runtime normalised for generation length [add softmax-2000/softmax-10000 when available]
+![output (8)](https://github.com/fletchel/DL2-CALM/assets/70916204/95d0a69f-031d-40cc-bb04-e7a11df8334d)
 
-In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime (normalised for generation length) in Figure 5. Note that these times are likely quite noisy as the cluster we ran experiments on experienced differing loads at different times.
+Figure 5. Rouge vs. evaluation runtime
 
-Here we again see that the softmax response performs the best, with the best ROUGE performance across all runtimes. The classifiers again perform worse than static exiting. In particular, it is notable that the additional inference time added by the transformer classifiers appears to cancel out the improvement in performance as measured by ROUGE. Indeed, the MLP classifier appears to perform the best of these classifiers for a given runtime. This may mean that the MLP classifier strikes the most ideal balance between classifier capacity and time complexity of the classifiers tested.
+In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generationl lengths. However, some patterns are evident.
+
+First of all, static exiting performs best for any given runtime. We believe this is because there is a substantial amount of overhead involved in early exiting, and due to the fact that we use a small model, this overhead dominates the inference speed improvement of early exiting. No wall clock times are reported in the original paper, so we are unable to verify whether the original authors identified a similar phenomenon. 
+
+Beyond static exiting, we see that softmax response has the fastest runtimes for high ROUGE values, and that the (non-linear) classifiers perform the best for middling ROUGE values (<25).
 
 
 Finally, we compare the performance of the **calibration method** with a naive confidence threshold selection method. [INSERT TABLE]
