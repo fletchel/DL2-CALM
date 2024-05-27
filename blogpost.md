@@ -105,6 +105,10 @@ We explored the effect of performing calibration using different sample sizes to
 The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. This suggests that the increase in sample size effectively offsets the noisiness of the different samples from the validation set, providing a precise measure of dissimilarity. 
 ### Exit layer results
 
+![image info](./plots/calibration/delta_exit_layer_samples_sizes_risk.png)
+
+
+
 In Table KL, you can see a summary of the results of exit layers for different consistency types and measures.
 We see, as we would expect, that the exit layer decreases with an increasing delta value for both consistency types and measures.
 
