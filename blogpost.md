@@ -287,10 +287,32 @@ We also explored the effect of performing calibration using different sample siz
 
 We observe for larger samples, the early exiting starts earlier. It is relevant to recall here that our methodology for accepting a confidence threshold depends on a hypothesis test confirmed or rejected by a p-value derived from Hoeffding's inequality. As the sample size increases, the difference between the observed dissimilarities and their expected value decreases given our i.i.d statistical assumptions which translates into us rejecting the null hypothesis for higher confidence thresholds. This is what we observe i.e. higher samples mean we start early exiting earlier. This is quite natural: given only a few samples, one cannot confidently accept the empirically observed dissimilarities as representative. 
 
+### Necessity of calibration
+
+To determine whether the calibration process adds value, we compare the values we get from the calibration process to those we get from a naive hyperparameter search.
+
+With a naive hyperparameter search, one might look for thresholds that maximise the ROUGE score while minimising the average number of layers traversed. For example, we can choose the minimum threshold that achieves a performance above 90% or 95% of the full model's ROUGE score.
+
+For the calibration process, we would consider the following trade-off: we want a delta that has a high risk consistency, while having few layers traversed. In each instance, we pick the risk delta such that $R_{\text{early}} - R_{\text{full}} < 0.1$.
+
+The results of this comparison can be seen in Table 2. Risk $\delta$ signifies the risk delta that was chosen from Figure 8, which was always the highest $\delta$ that satisfied $R_{\text{early}} - R_{\text{full}} < 0.1$. $\lambda$ signifies the threshold: the $\lambda_\text{min}$ in Risk $\delta / \lambda_\text{min}$ is thus the threshold that corresponds to the given risk delta. $\lambda_{0.9}$ is the smallest threshold that achieves a ROUGE score above 90% of the full model's ROUGE score. $\lambda_{0.95}$ is the smallest threshold that achieves a ROUGE score above 95% of the full model's ROUGE score.
+
+![img_1.png](img_1.png)
+
+Table 2. Comparison of naive hyperparameter search with calibration process. 
+
+We note that the results of the calibration process and the results of a naive hyperparameter search are very similar in every case except one: the transformer. For the transformer, we see that the calibration process provides some benefit over the naive hyperparameter search as using the threshold value determined (0.6) results in a model that runs in 7:35 minutes, whereas using the threshold value determined using naive hyperparameter search results in a model that runs in 12:28 minutes.
+
+However, for the other cases, when we compare the running times of the models that use the threshold values determined by the calibration process and the naive hyperparameter search, the running times are always within 5% of each other. For these cases, the calibration process does not provide a noticeable benefit over the naive hyperparameter search.
+
+In summary, while the calibration process does provide a large benefit for the transformer, it does generally not provide a noticeable benefit over the naive hyperparameter search. Furthermore, it may cause a false sense of confidence in the outputs, which is especially problematic when the calibration set is not representative of the entire distribution of prompts.
+
 # Conclusion
 To conclude, for a smaller model than that used in the CALM paper, we reproduced and verified the claims of their calibration process, namely, that their proposed confidence measures can drastically reduce inference time with a tunable risk. We reproduced the finding that the softmax measure was most effective, and observed very similar trends for both textual and risk consistency evolution against tolerance across confident measures.
 
-We further added our own confidence measures and compared their performance. Our methods did not beat those of the authors' in terms of early exiting for fixed tolerance, or in regards to moderating the dissimilarity of the early generated sequence. Given the smaller model we had access to as well as our limited fine-tuning, it is unclear the cause of our seemingly theoretically justified extensions. We also made several expansions to an existing Pytorch repository such as adding a stastical calibration infrastructure which may provide useful to future researchers. 
+We further added our own confidence measures and compared their performance. Our methods did not beat those of the authors in terms of early exiting for fixed tolerance, or in regards to moderating the dissimilarity of the early generated sequence. Given the smaller model we had access to as well as our limited fine-tuning, it is unclear the cause of our seemingly theoretically justified extensions. We also made several expansions to an existing Pytorch repository such as adding a stastical calibration infrastructure which may provide useful to future researchers. 
+
+Finally, we compared calibrated threshold values to naively searched threshold values and find that calibrating the thresholds does not provide a noticeable benefit in most cases.
 
 
 # Contributions per student
@@ -303,7 +325,7 @@ Daniel Goodwin - Implementation and investigation/reproduction of calibration pr
 
 Andrew Heath - Implementation and investigation/reproduction of calibration process
 
-Robert van der Klis - Reproduction of original paper results and finetuning of models
+Robert van der Klis - Reproduction of original paper results and finetuning of models, comparison of naive hyperparameter search with calibration process.
 
 # References
 [1] T. Brown et al., “Language Models are Few-Shot Learners,” in Advances in Neural Information Processing Systems, Curran Associates, Inc., 2020, pp. 1877–1901. Accessed: May 27, 2024. [Online]. Available: https://papers.nips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html
