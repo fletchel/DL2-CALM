@@ -303,8 +303,7 @@ We see that with larger samples, the model exists with lower values of delta, wh
 
 # Conclusion
 
-In this paper, we reproduced and extended the high-level results of Confident Adaptive Language Modelling (CALM) [14] with respect to early-exiting. In particular, we found that the softmax response confidence method provided the best trade-off between speed and performance and could lead to faster inference for sufficiently large models. We implemented and tested a method to speed up the softmax response through top-k token propagation, further speeding up this method. We also implemented a number of additional confidence classifiers and improved over the linear classifier presented in CALM with MLP/transformer classifiers, although further work must be done to confirm this, as our experiments here were hindered by limited access to compute. We also reproduced the calibrations of the original paper finding similar trends to that of the authors.  
-
+To conclude, for a smaller model than that used in the CALM paper, we reproduced and verified the claims of their calibration process, namely, that their proposed confidence measures can drastically reduce inference time with a tunable risk. We further added our confidence measures and compared their performance. Our methods did not beat those of the authors' in terms of early exiting for fixed tolerance, or in regards to moderating the dissimilarity of the early generated sequence. Given the smaller model we had access to as well as our limited fine-tuning, it is unclear the cause of our seemingly theoretically justified extensions. We also made several expansions to an existing Pytorch repository such as adding a stastical calibration infrastructure which may provide useful to future researchers. 
 
 
 # Contributions per student
