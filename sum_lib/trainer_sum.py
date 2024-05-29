@@ -72,7 +72,7 @@ class SumTrainer(Seq2SeqTrainer):
         metric_key_prefix: str = "test",
         **gen_kwargs,
     ) -> PredictionOutput:
-
+        
         predictions, label_ids, predict_metrics = super().predict(test_dataset, ignore_keys, metric_key_prefix, **gen_kwargs)
         # average block layers
         if self.model.decoder.use_shallow_deep:

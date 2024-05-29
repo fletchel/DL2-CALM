@@ -71,7 +71,7 @@ def get_confidence_class(key, sorted_logits=False):
 
     if key == 'softmax':
 
-        return softmax_confidence
+        return softmax_confidence if sorted_logits else softmax_confidence
 
     elif 'transformer' in key:
 

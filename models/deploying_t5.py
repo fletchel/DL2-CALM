@@ -948,6 +948,18 @@ class DeployT5Stack(T5Stack):
                         else:
                             lm_logits = lm_head(temp_hidden_)
 
+                        sorted_logits = False
+                        if self.top_propagation is not None and top_k_tokens is None:
+                            # top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation,
+                            #                           sorted=True)
+                            top_k_results = torch.topk(lm_logits.squeeze(1), k=self.top_propagation, sorted=True)
+                            top_k_tokens, lm_logits = top_k_results.indices, top_k_results.values
+                            top_k_tokens = top_k_tokens.squeeze(0)
+                            lm_logits = lm_logits.unsqueeze(0)
+                            # lm_logits = lm_logits[..., top_k_tokens]
+                            top_k_weight = lm_head.weight[top_k_tokens]
+                            sorted_logits = True
+
                         #lm_logits[..., 0] = -1000 # exclude pad token
                         if 'transformer' in self.config.exit_conf_type:
 
@@ -969,6 +981,7 @@ class DeployT5Stack(T5Stack):
                                 cm_head,
                                 config=self.config,
                                 pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
+                                sorted_logits=sorted_logits
                             )
 
 
@@ -992,6 +1005,9 @@ class DeployT5Stack(T5Stack):
                             pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
                             sorted_logits=sorted_logits
                         )
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
+                                sorted_logits=sorted_logits
+                            )
 
                         if skip_mask and top_k_tokens is not None:
                             lm_logits = torch.scatter(
@@ -1171,8 +1187,8 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             min_exit_layer = self.decoder.exit_min_layer or 0
             self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, config.num_layers)}
 
-    def set_config_exit_threshold(self, threshold):
-        self.config.exit_conf_threshold = threshold
+
+>>>>>>>>> Temporary merge branch 2
 
     def forward(
         self,
