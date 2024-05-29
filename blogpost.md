@@ -19,7 +19,7 @@ In the experiments shown in CALM paper, **softmax response** consistently outper
 
 Besides proposing a new early-exiting mechanism via the confidence measures on intermediate decoder tokens as described above, the paper also presents a statistical procedure which allows the implementer to obtain probabilistic guarantees on the disparity between the generations of the full LLM and the early exiting LLM.
 
-To make this more precise, let $S_{cal} = (P_{i})_{i \in n}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t$ less than $m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
+To make this more precise, let $S_{cal} = (P_{i})\_{i \in n}$ be an i.i.d calibration set of prompts. This could be articles to be summarized, or sentences to be translated. Given a prompt $P=(p_1,\dots,p_m)$, the processed encoder states $(e_1,\dots,e_m)$, and a partially generated decoded response $(y_1, \dots, y_t)$ for $t$ less than $m$. To obtain $y_{t+1}$, the decoder computes a decoder state $d_t^i$ for each layer $i$ of $L$, where our decoder block has $L$ layers. This is done in the typical way combining a self-attention block, a cross-attention block and a feed-forward block. Once this is done, a probability distribution over the vocabulary is obtained via soft-maxing the projected final decoder state: $p(y_{t+1}|d_t^L)=softmax(W_L d_t^L)$. 
 
 The key idea of early-exiting is to use some earlier decoder state $d_t^i$ with $i < L$ to obtain this vocabulary distribution. We use some earlier decoder state $d_t^i$ if its local exiting threshold $\lambda_t^i$ is exceeded by the local confidence score $c_t^i$. Several ways of obtaining this local confidence score have been discussed above.
 
@@ -107,7 +107,7 @@ for decoder_layer in decoder:
 
   === CALM ===
   logits = process hidden_states using final MLP of the decoder           # O(D x V), highly parallelizable
-  probs = computer softmax of logits                                      # O(V)
+  probs = compute softmax of logits                                       # O(V)
   top1, top2 = find 2 highest probabilities in probs                      # O(V + 2 log V), based on PyTorch implementation
   confidence = top1 - top2                                                # O(1)
   === CALM ===
@@ -116,7 +116,7 @@ for decoder_layer in decoder:
   === Ours ===
   if top_k_indices is None:                                               # only for the first decoder layer
     logits = process hidden_states using final MLP of the decoder         # O(D x V), highly parallelizable
-    probs = computer softmax of logits                                    # O(V)
+    probs = compute softmax of logits                                     # O(V)
     probs, top_k_indices = find K highest probabilities (sorted) and corresponding indices in probs
                                                                           # O(V + K log V), based on PyTorch implementation
     top1, top2 = chose the top 2 elements from the sorted list            # O(1)
@@ -178,8 +178,6 @@ For the calibration, we ran the calibration as described in the paper on the fol
 For each of these, we perform a full search across a range of delta values from 0.1 to 1 in steps of 0.1.
 We also used candidate confidence thresholds of 1 to 0.05 in steps of 0.05.
 
-## Top-k propagation
-
 ## Classifier training
 
 We implemented four types of confidence classifier. These were as follows
@@ -201,7 +199,7 @@ We trained each of these for approx. 0.25 epochs each (due to compute constraint
 
 # Results
 
-## Top-k propagation 
+## Top-k token propagation 
 First, we compare the performance of the **top-k token propagation** with the original **softmax response** method for different numbers of propagated tokens and confidence thresholds. For both $\lambda = 0.5$ and $\lambda = 0.9$, using only 2000 most probable tokens to compute confidence allowed for an increase in the number of generated tokens per second at a slight cost to the $\text{ROUGE-L}_\text{sum}$ metric. Overall, it is possible to observe the trends we have expected in the **Contribution** section &mdash; the benefits of using our method become more noticeable as greater number of layers needs needs to be traversed to get sufficiently confident prediction
 
 ![Results for selected thresholds](https://github.com/fletchel/DL2-CALM/assets/34794757/86eefd2d-cf96-4745-bf13-cfe540633250)
@@ -217,21 +215,21 @@ Figure 5. Average time spent on confidence estimation per layer given different 
 
 In order to compare the confidence methods used, we perform evaluation for each method for a wide range of confidence thresholds. We report comparisons in two ways:
 
-  - how ROUGE varies with the average number of decoder blocks used (figure 4)
+  - how ROUGE varies with the average number of decoder blocks used (figure 6)
   - how ROUGE varies with the average evaluation runtime (figure 5).
   
 Note that softmax (2000) and softmax (10000) refer to the softmax response confidence method with top 2000 token propagation and top 10000 token propagation respectively.
 
-![Figure 4](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
-Figure 4. ROUGE vs. average number of decoder blocks used by confidence method
+![Figure 6](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
+Figure 6. ROUGE vs. average number of decoder blocks used by confidence method
 
-Figure 4 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
+Figure 6 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
 
 We see our classifiers exhibit approximately the expected pattern in performance (namely that the linear classifier performs worst while the two transformer classifiers perform best). Surprisingly, we find that all of these classifiers compare unfavourably with static exiting. We suspect that this is because our classifiers are substantially undertrained due to compute constraints. We had to train each classifier on only about 25% of the available data (in other words, we trained for approximately 0.25 epochs). In the original paper, the classifiers perform only marginally better than static exiting, so it seems plausible that this undertraining is sufficient to explain the lackluster performance of our classifiers. Nevertheless, we find that our proposed transformer extension performs better than the linear classifier described in the original paper.
 
-![Figure 5](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
+![Figure 7](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
 
-Figure 5. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
+Figure 7. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
 
 In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generation lengths. However, some patterns are evident.
 
@@ -244,67 +242,77 @@ Note also that the odd appearance of the curves near the bottom of the ROUGE ran
 ## Calibration 
 The purpose of this section is primarily reproductive, although we also display our contributions where possible. Specifically, for the CNN-DM dataset, we perform the experiments of Appendix B1, albeit with the smaller T5 model as discussed above. As explained in the section summarising the statistical methods of CALM, there are two dissimilarity measures. Throughout all these plots, $\epsilon = 0.05.$ We start with risk:
 ### Risk consistency
- Figure 1 shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency, both the confidence measures of the paper (softmax and vanilla_classifer), as well as our own contributions. We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2. When compared with Figure B2(a) of the paper, we observe identical trends; early growth before stabilisation around a risk dissimilarity of .2. In the paper figure, the risk asymptote is slightly lower at .1, this could be explained by the larger model and more extensive fine-tuning used there.
+ Figure 8 shows the RogueL values plotted against delta values for different early exit measure approaches for risk consistency, both the confidence measures of the paper (softmax and vanilla_classifer), as well as our own contributions. We see an initial increase in RogueL values for the measures softmax and the classifier from 0.2 to 0.4, after which we observe a steady value for RougeL around 0.2. When compared with Figure B2(a) of the paper, we observe identical trends; early growth before stabilisation around a risk dissimilarity of .2. In the paper figure, the risk asymptote is slightly lower at .1, this could be explained by the larger model and more extensive fine-tuning used there.
  
 <p align="center">
   <img src="./plots/calibration/delta_vs_dissimilarity_risk.png">
   <br>
-  <em>Figure 1: Plot of the risk consistency of various models for varying tolerance values δ.</em>
+  <em>Figure 8: Plot of the risk consistency of various models for varying tolerance values δ.</em>
 </p>
 
-Figure 2 shows how the average layer of exit evolves as we increase the tolerance. The softmax performs well here, as we see noticeble speed-up for $\delta \geq .1$ In comparison with Figure B2(a) of the paper, the decrease in exit layer occurs at a slightly higher tolerance value however the overall trends are reproduced.
+Figure 9 shows how the average layer of exit evolves as we increase the tolerance. The softmax performs well here, as we see noticeble speed-up for $\delta \geq .1$ In comparison with Figure B2(a) of the paper, the decrease in exit layer occurs at a slightly higher tolerance value however the overall trends are reproduced.
 
 <p align="center">
   <img src="./plots/calibration/delta_vs_exit_layers_risk.png">
   <br>
-  <em>Figure 2: Plot of the average exit layer of various models for varying tolerance values δ, using risk consistency during calibration.</em>
+  <em>Figure 9: Plot of the average exit layer of various models for varying tolerance values δ, using risk consistency during calibration.</em>
 </p>
 
 ### Textual consistency
 
-Figure 3 shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors. We observe softmax is the best performing confidence measure given a tolerance. For our proposed confidence measure of using an attention based method, and for the authors' classifier, we notice there are datapoints larger than the diagonal. We recall that the statistical method used to determine the confidence threshold doesn't exclude this possiblity, but makes it a low probability event.
+Figure 10 shows Textual consistency plotted against delta values; for the shown measure, we observe a similar trend to that of the authors. We observe softmax is the best performing confidence measure given a tolerance. For our proposed confidence measure of using an attention based method, and for the authors' classifier, we notice there are datapoints larger than the diagonal. We recall that the statistical method used to determine the confidence threshold doesn't exclude this possiblity, but makes it a low probability event.
 
 <p align="center">
   <img src="./plots/calibration/delta_vs_dissimilarity_textual.png">
   <br>
-  <em>Figure 3: Plot of the dissimilarity of various models for varying tolerance values δ</em>
+  <em>Figure 10: Plot of the dissimilarity of various models for varying tolerance values δ</em>
 </p>
 
-Figure 4 shows the delta values plotted against the average exit layer for different measures. In the authors' figure B1(a), both the softmax and classifier measures average exit layer immediately descend for non-zero tolerance levels. We observe a difference here, in that for all measures, the tolerance must be larger than .2 before we begin to observe a decrease in the mean exit layer. This may again reflect the difference in fine-tuning, which could manifest in earlier, faster converging decoder states. 
+Figure 11 shows the delta values plotted against the average exit layer for different measures. In the authors' figure B1(a), both the softmax and classifier measures average exit layer immediately descend for non-zero tolerance levels. We observe a difference here, in that for all measures, the tolerance must be larger than .2 before we begin to observe a decrease in the mean exit layer. This may again reflect the difference in fine-tuning, which could manifest in earlier, faster converging decoder states. 
 
 <p align="center">
   <img src="./plots/calibration/delta_vs_exit_layers_textual.png">
   <br>
-  <em>Figure 4: Plot of the average layer of exit across various confidence measures for varying tolerance values δ, using textual dissimilarity.</em>
+  <em>Figure 12: Plot of the average layer of exit across various confidence measures for varying tolerance values δ, using textual dissimilarity.</em>
 </p>
 
 ### Sample size effects
-
-We also investiaged briefly the effects of different samples sizes on the calibration proccess.
-
-Figure 5 shows the effect of performing calibration using different sample sizes to assess the calibration method's sensitivity to changes in sample size.
-The plot above shows that the dissimilarity metrics stabilize between 0.15 and 0.25. 
-<p align="center">
-  <img src="./plots/calibration/calibration_sample_size_effects.png">
-  <br>
-  <em>Figure 5: Effects of sample size on calibration with respect to the dissimilarity metric (risk) </em>
-</p>
-
-
-Shown in Figure 6, we see the effect of a change in sample size on the exit layer in relation to delta. 
-We see that with larger samples, the model exists with lower values of delta, which is what we would expect.
+We also explored the effect of performing calibration using different sample sizes to assess its effect on early exiting. This can be seen in Figure 13:
 
 <p align="center">
   <img src="./plots/calibration/delta_exit_layer_samples_sizes_risk.png">
   <br>
-  <em>Figure 6: Effects of sample size on calibration with respect to the exit layer (risk) </em>
+  <em>Figure 13: Average exit layer vs tolerance for different sample sizes.</em>
 </p>
 
+We observe for larger samples, the early exiting starts earlier. It is relevant to recall here that our methodology for accepting a confidence threshold depends on a hypothesis test confirmed or rejected by a p-value derived from Hoeffding's inequality. As the sample size increases, the difference between the observed dissimilarities and their expected value decreases given our i.i.d statistical assumptions which translates into us rejecting the null hypothesis for higher confidence thresholds. This is what we observe i.e. higher samples mean we start early exiting earlier. This is quite natural: given only a few samples, one cannot confidently accept the empirically observed dissimilarities as representative. 
+
+### Necessity of calibration
+
+To determine whether the calibration process adds value, we compare the values we get from the calibration process to those we get from a naive hyperparameter search.
+
+With a naive hyperparameter search, one might look for thresholds that maximise the ROUGE score while minimising the average number of layers traversed. For example, we can choose the minimum threshold that achieves a performance above 90% or 95% of the full model's ROUGE score.
+
+For the calibration process, we would consider the following trade-off: we want a delta that has a high risk consistency, while having few layers traversed. In each instance, we pick the risk delta such that $R_{\text{early}} - R_{\text{full}} < 0.1$.
+
+The results of this comparison can be seen in Table 2. Risk $\delta$ signifies the risk delta that was chosen from Figure 8, which was always the highest $\delta$ that satisfied $R_{\text{early}} - R_{\text{full}} < 0.1$. $\lambda$ signifies the threshold: the $\lambda_\text{min}$ in Risk $\delta / \lambda_\text{min}$ is thus the threshold that corresponds to the given risk delta. $\lambda_{0.9}$ is the smallest threshold that achieves a ROUGE score above 90% of the full model's ROUGE score. $\lambda_{0.95}$ is the smallest threshold that achieves a ROUGE score above 95% of the full model's ROUGE score.
+
+![img_1.png](img_1.png)
+
+Table 2. Comparison of naive hyperparameter search with calibration process. 
+
+We note that the results of the calibration process and the results of a naive hyperparameter search are very similar in every case except one: the transformer. For the transformer, we see that the calibration process provides some benefit over the naive hyperparameter search as using the threshold value determined (0.6) results in a model that runs in 7:35 minutes, whereas using the threshold value determined using naive hyperparameter search results in a model that runs in 12:28 minutes.
+
+However, for the other cases, when we compare the running times of the models that use the threshold values determined by the calibration process and the naive hyperparameter search, the running times are always within 5% of each other. For these cases, the calibration process does not provide a noticeable benefit over the naive hyperparameter search.
+
+In summary, while the calibration process does provide a large benefit for the transformer, it does generally not provide a noticeable benefit over the naive hyperparameter search. Furthermore, it may cause a false sense of confidence in the outputs, which is especially problematic when the calibration set is not representative of the entire distribution of prompts.
 
 # Conclusion
 To conclude, for a smaller model than that used in the CALM paper, we reproduced and verified the claims of their calibration process, namely, that their proposed confidence measures can drastically reduce inference time with a tunable risk. We reproduced the finding that the softmax measure was most effective, and observed very similar trends for both textual and risk consistency evolution against tolerance across confident measures.
 
-We further added our own confidence measures and compared their performance. Our methods did not beat those of the authors' in terms of early exiting for fixed tolerance, or in regards to moderating the dissimilarity of the early generated sequence. Given the smaller model we had access to as well as our limited fine-tuning, it is unclear the cause of our seemingly theoretically justified extensions. We also made several expansions to an existing Pytorch repository such as adding a stastical calibration infrastructure which may provide useful to future researchers. 
+We further added our own confidence measures and compared their performance. Our methods did not beat those of the authors in terms of early exiting for fixed tolerance, or in regards to moderating the dissimilarity of the early generated sequence. Given the smaller model we had access to as well as our limited fine-tuning, it is unclear the cause of our seemingly theoretically justified extensions. We also made several expansions to an existing Pytorch repository such as adding a stastical calibration infrastructure which may provide useful to future researchers. 
+
+Finally, we compared calibrated threshold values to naively searched threshold values and find that calibrating the thresholds does not provide a noticeable benefit in most cases.
 
 
 # Contributions per student
@@ -317,7 +325,7 @@ Daniel Goodwin - Implementation and investigation/reproduction of calibration pr
 
 Andrew Heath - Implementation and investigation/reproduction of calibration process
 
-Robert van der Klis - Reproduction of original paper results and finetuning of models
+Robert van der Klis - Reproduction of original paper results and finetuning of models, comparison of naive hyperparameter search with calibration process.
 
 # References
 [1] T. Brown et al., “Language Models are Few-Shot Learners,” in Advances in Neural Information Processing Systems, Curran Associates, Inc., 2020, pp. 1877–1901. Accessed: May 27, 2024. [Online]. Available: https://papers.nips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html
