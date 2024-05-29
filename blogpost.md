@@ -323,11 +323,11 @@ For the calibration process, we would consider the following trade-off: we want 
 
 The results of this comparison can be seen in Table 2. Risk $\delta$ signifies the risk delta that was chosen from Figure 8, which was always the highest $\delta$ that satisfied $R_{\text{early}} - R_{\text{full}} < 0.1$. $\lambda$ signifies the threshold: the $\lambda_\text{min}$ in Risk $\delta / \lambda_\text{min}$ is thus the threshold that corresponds to the given risk delta. $\lambda_{0.9}$ is the smallest threshold that achieves a ROUGE score above 90% of the full model's ROUGE score. $\lambda_{0.95}$ is the smallest threshold that achieves a ROUGE score above 95% of the full model's ROUGE score.
 
-Table 2. Comparison of naive hyperparameter search with calibration process. 
+
 <p align="center">
-  <img src="img_1.png">
+  <img src="plots\img_1.png">
   <br>
-  <em>Figure 9: Plot of the average exit layer of various models for varying tolerance values δ, using risk consistency during calibration.</em>
+  <em>Table 2. Comparison of naive hyperparameter search with calibration process. </em>
 </p>
 
 We note that the results of the calibration process and the results of a naive hyperparameter search are very similar in every case except one: the transformer. For the transformer, we see that the calibration process provides some benefit over the naive hyperparameter search as using the threshold value determined (0.6) results in a model that runs in 7:35 minutes, whereas using the threshold value determined using naive hyperparameter search results in a model that runs in 12:28 minutes.
