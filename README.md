@@ -29,12 +29,12 @@ It contain information on how to generate the calibration plots given that you h
 ### Training
 In order to train the early-exit classifiers, please see the confidence_classifier_training.sh script.
 The important parameters are:
-- ```do_train```: sets the flag to do training
-- ```output_dir```: where to save the model + trained classifier
-- ```learning_rate```: sets learning rate for classifier training
-- ```num_train_epochs```: number of epochs to train for
-- ```exit_conf_type```: which classifier to train, options are 'vanilla_classifier' (linear), 'MLP', 'transformer_MLP_64' and 'transformer_MLP_512'. Also available are 'transformer_linear_64' and 'transformer_linear_512', which replace the MLP at the end of the transformer classifier with a simple linear layer.
-- ```max_train_samples```: [optional] maximum number of training datapoints to use for training
+- ```--do_train```: sets the flag to do training
+- ```--output_dir```: where to save the model + trained classifier
+- ```--learning_rate```: sets learning rate for classifier training
+- ```--num_train_epochs```: number of epochs to train for
+- ```--exit_conf_type```: which classifier to train, options are 'vanilla_classifier' (linear), 'MLP', 'transformer_MLP_64' and 'transformer_MLP_512'. Also available are 'transformer_linear_64' and 'transformer_linear_512', which replace the MLP at the end of the transformer classifier with a simple linear layer.
+- ```--max_train_samples```: [optional] maximum number of training datapoints to use for training
 
 ### Evaluation
 In order to evaluate a trained early_exit classifier, please see the confidence_classifier_training_eval.sh script
