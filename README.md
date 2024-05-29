@@ -11,13 +11,13 @@ To generate the results for the transformer and MLP models, use [LUAN SCRIPT], a
 ## Calibration
 In order to run the experiments for calibration please see the calibiration_run.sh script.
 The important parameters are:
-- '--do_cali' : this sets the calibration flag to True i.e. run the calibration.
-- '--max_calibrate_samples' : the number of samples to use for calibration.
-- '--exit_conf_type': '
-- '--calibrate_delta': the delta value for the calibration.
-- --calibrate_epsilon': the epsilon value for the calibration.
-- '--thresholds': the threshold candidate for the calibration (lambda values).
-- '--consistency_type': the type of consistency to use for the calibration.
+- ```--do_cali``` : this sets the calibration flag to True i.e. run the calibration.
+- ```--max_calibrate_samples``` : the number of samples to use for calibration.
+- ```--exit_conf_type```: '
+- ```--calibrate_delta```: the delta value for the calibration.
+- ```--calibrate_epsilon```: the epsilon value for the calibration.
+- ```--thresholds```: the threshold candidate for the calibration (lambda values).
+- ```--consistency_type```: the type of consistency to use for the calibration.
 For more information regarding the meaning of delta, epsilon, and consistency type, please refer to the original paper.
 
 ### Calibration Plots
@@ -29,49 +29,36 @@ It contain information on how to generate the calibration plots given that you h
 ### Training
 In order to train the early-exit classifiers, please see the confidence_classifier_training.sh script.
 The important parameters are:
-- 'do_train': sets the flag to do training
-- 'output_dir': where to save the model + trained classifier
-- 'learning_rate': sets learning rate for classifier training
-- 'num_train_epochs': number of epochs to train for
-- 'exit_conf_type': which classifier to train, options are 'vanilla_classifier' (linear), 'MLP', 'transformer_MLP_64' and 'transformer_MLP_512'. Also available are 'transformer_linear_64' and 'transformer_linear_512', which replace the MLP at the end of the transformer classifier with a simple linear layer.
-- 'max_train_samples': [optional] maximum number of training datapoints to use for training
+- ```do_train```: sets the flag to do training
+- ```output_dir```: where to save the model + trained classifier
+- ```learning_rate```: sets learning rate for classifier training
+- ```num_train_epochs```: number of epochs to train for
+- ```exit_conf_type```: which classifier to train, options are 'vanilla_classifier' (linear), 'MLP', 'transformer_MLP_64' and 'transformer_MLP_512'. Also available are 'transformer_linear_64' and 'transformer_linear_512', which replace the MLP at the end of the transformer classifier with a simple linear layer.
+- ```max_train_samples```: [optional] maximum number of training datapoints to use for training
 
 ### Evaluation
 In order to evaluate a trained early_exit classifier, please see the confidence_classifier_training_eval.sh script
 The important parameters are:
-- '--model_name_or_path': ensure this is pointed to the correct model (the one saved by the classifier training script in output_dir)
-- '--use_early_exit': this must be true to ensure early exiting is used during evaluation
-- '--exit_conf_type': which classifier to evaluate (note, must match the classifier trained on the model pointed to by --model_name_or_path)
-- '--exit_conf_threshold': confidence threshold for use during early exiting
-- '--exit_min_layer': minimum layer for early exit (in our experiments, this is always 1)
-- '--max_eval_samples': [optional] maximum number of eval datapoints to use for evaluation
+- ```--model_name_or_path```: ensure this is pointed to the correct model (the one saved by the classifier training script in output_dir)
+- ```--use_early_exit```: this must be true to ensure early exiting is used during evaluation
+- ```--exit_conf_type```: which classifier to evaluate (note, must match the classifier trained on the model pointed to by --model_name_or_path)
+- ```--exit_conf_threshold```: confidence threshold for use during early exiting
+- ```--exit_min_layer```: minimum layer for early exit (in our experiments, this is always 1)
+- ```--max_eval_samples```: [optional] maximum number of eval datapoints to use for evaluation
 
 ## Top-k token propagation
 The evaluation of top-k token propagation method has been integrated into the standard evaluation pipeline of FREE codebase.
 It can be activated by specifying the value of K for parameter ```--top_propagation K```. Since top-k propagation is defined for softmax response confidence estimation,
 it takes effect only when parameter ```--exit_conf_type softmax``` is set.
 
-The full command structure for evaluating with top-k token propagation is shown below:
-
-```shell
-python run_summarization.py 
-    --model_name_or_path <path_to_finetuned_model> 
-    --do_eval 
-    --dataset_name <dataset_name>
-    --dataset_config_name "3.0.0" 
-    --output_dir <output_path>
-    --per_device_eval_batch_size 1 
-    --deploy_scenario True 
-    --use_synchronize True 
-    --overwrite_output_dir 
-    --predict_with_generate 
-    --source_prefix "summarize: " 
-    --use_early_exit True 
-    --exit_conf_type softmax 
-    --exit_conf_threshold <confidence_threshold> 
-    --exit_min_layer 1 
-    --top_propagation <K>
-```
+For the full structure of the command, please refer to the the topk_propagation_eval.sh script. The important parameters are:
+- ```--model_name_or_path```: ensure this is pointed to the model finetuned for CALM softmax-response method
+- ```--use_early_exit```: this must be true to ensure early exiting is used during evaluation
+- ```--exit_conf_type```: for a top-k token propagation to work, it must be set to ```softmax```
+- ```--exit_conf_threshold```: confidence threshold for use during early exiting
+- ```--exit_min_layer```: minimum layer for early exit (in our experiments, this is always 1)
+- ```--top_propagation```: [optional] number of tokens to use in top-k token propagation (if not set, then standard CALM method is run)
+- ```--max_eval_samples```: [optional] maximum number of eval datapoints to use for evaluation
 
 As the result of this command, ```all_results.json``` file with time measurements and recorded metrics will be saved 
-to ```<output_path>```. All the results used in our experiments were generated by running ```bash ./topk_run_file.sh```.
+in the location of ```--output_dir```. All the results used in our experiments were generated by running ```bash ./topk_run_file.sh```.
