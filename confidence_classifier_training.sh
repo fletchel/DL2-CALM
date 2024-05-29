@@ -1,4 +1,4 @@
-python summary_test.py \
+python run_summarization.py \
     --model_name_or_path ./save/cnndm_t5_small_run2/ \
     --do_eval \
     --dataset_name cnn_dailymail \
