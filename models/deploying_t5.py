@@ -980,7 +980,7 @@ class DeployT5Stack(T5Stack):
                                 _hidden_states,
                                 cm_head,
                                 config=self.config,
-                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1
+                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
                                 sorted_logits=sorted_logits
                             )
 
@@ -1005,9 +1005,6 @@ class DeployT5Stack(T5Stack):
                             pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
                             sorted_logits=sorted_logits
                         )
-                                pos_time=past_key_values[i][0].shape[2] + 1 if past_key_values[i] is not None else 1,
-                                sorted_logits=sorted_logits
-                            )
 
                         if skip_mask and top_k_tokens is not None:
                             lm_logits = torch.scatter(
@@ -1127,6 +1124,12 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.decoder.lm_head = self.lm_head
 
+        self.conf_time_per_layer = None
+        if self.decoder.use_early_exit:
+            min_exit_layer = self.decoder.exit_min_layer or 0
+            self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in
+                                        range(min_exit_layer, config.num_layers)}
+
         logger.info(f"Config exit conf type: {self.config.exit_conf_type}")
         if self.config.exit_conf_type == 'vanilla_classifier':
             self.cm_head = nn.Sequential(
@@ -1178,17 +1181,6 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
             'time_estimate_conf': datetime.timedelta(),
             'time_others': datetime.timedelta(),
         }
-
-    def set_config_exit_threshold(self, threshold):
-        self.config.exit_conf_threshold = threshold
-
-        self.conf_time_per_layer = None
-        if self.decoder.use_early_exit:
-            min_exit_layer = self.decoder.exit_min_layer or 0
-            self.conf_time_per_layer = {layer_idx: datetime.timedelta() for layer_idx in range(min_exit_layer, config.num_layers)}
-
-
->>>>>>>>> Temporary merge branch 2
 
     def forward(
         self,
@@ -1365,6 +1357,8 @@ class DeployT5ForConditionalGeneration(T5ForConditionalGeneration):
         for k, v in self.decoder.deploy_time.items():
             if type(v) != list: self.deploy_time[k] += v
             else: self.deploy_time[k] = [_d + _v for _d, _v in zip(self.deploy_time[k], v)]
+
+
         if self.conf_time_per_layer:
             for layer_id in self.conf_time_per_layer.keys():
                 self.conf_time_per_layer[layer_id] += self.decoder.conf_time_per_layer[layer_id]

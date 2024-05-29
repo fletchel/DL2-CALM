@@ -386,7 +386,7 @@ def main(model_args, data_args, training_args, additional_args: AdditionalArgume
                 desc="Running tokenizer on train dataset",
             )
 
-    if training_args.do_eval:
+    if training_args.do_eval or additional_args.do_cali:
         max_target_length = data_args.val_max_target_length
         eval_dataset = raw_datasets["validation"]
         if data_args.max_eval_samples is not None:
