@@ -4,8 +4,11 @@ Transformer-based autoregressive language models have been shown to achieve rema
 
 The core idea of the *Confident Adaptive Language Modeling* framework is early-exit in the auto-regressive generation task, meaning that the next token $y_{t+1}$ can be chosen without traversing all $N$ layers of the decoder. This can be achieved by outputting the model's prediction $\text{argmax } p(y_{t+1} | d_t^i)$ at the first layer $i < N$  where its confidence is high enough (Figure 1). This requires estimating the confidence of prediction $c_t^i$ at a given layer $i$ and comparing it with a predefined confidence threshold $\lambda$. If $c_t^i > \lambda$, the model's prediction $\text{argmax } p(y_{t+1} | d_t^i)$ at the current layer can be used to generate the next token. Otherwise, the model must compute the next representation $d_t^{i+1}$.
 
-![Early-exit framework](https://github.com/fletchel/DL2-CALM/assets/34794757/32b36a8d-eaa0-4aa2-8477-0f4042df2515)
-Figure 1. The Confident Adaptive Language Modeling framework. Figure from [4].
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/34794757/32b36a8d-eaa0-4aa2-8477-0f4042df2515">
+  <br>
+  <em>Figure 1. The Confident Adaptive Language Modeling framework. Figure from [4].</em>
+</p>
 
 The confidence estimation is a crucial element of CALM; an underperforming method may either underestimate confidence &mdash; causing the model to never exit early and therefore leading to no computational benefit over the base model &mdash; or overestimate the uncertain prediction, causing the quality of the generated text to deteriorate. The authors of the original work propose three robust confidence estimators:  
 
@@ -73,15 +76,21 @@ The approach studied in the CALM paper is *early exiting*, where the model can d
 
 Further gains in the efficiency of autoregressive LLMs would increase the accessibility of these models for applications in both academia and industry. Although the CALM framework already provides a noticeable improvement in the inference time, the best performing confidence estimation method &mdash; **softmax response** &mdash; introduces significant computational overhead by requiring multiplication of the tokens with the final linear layer, which is a matrix of shape $(d_{model}, V)$. This leads to $\mathcal{O}(VD)$ time complexity, where the $V$ denotes the output vocabulary size and $D$ is the dimensionality of hidden representation. In extreme cases, the inference may take more time compared to the original model for difficult tokens where the required confidence threshold is exceeded only in the later layers.
 
-![Inference time for baseline T5-small and CALM](https://github.com/fletchel/DL2-CALM/assets/34794757/195f07cd-437e-4f00-99b0-3eb3de806416)
-Figure 2. Inference time comparison for full T5-small model and CALM framework
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/34794757/195f07cd-437e-4f00-99b0-3eb3de806416">
+  <br>
+  <em>Figure 2. Inference time comparison for full T5-small model and CALM framework.</em>
+</p>
 
 The above plot shows that even when using a high confidence threshold of $\lambda = 0.9$, CALM with **softmax response** confidence estimation can lead to a noticeable improvement in the inference times without much decrease to $\text{ROUGE-L}_{sum}$ scores. However, it can be observed that over 20% of the inference time is spent on confidence estimation &mdash; if the model's predictions were more uncertain and the average number of layers after which the prediction is returned would be higher, it could happen that the prediction time for CALM model exceeds that of the baseline model. Additional attention should then be given to reducing the time needed for confidence estimation when a higher number of layers need to be traversed before obtaining confident predictions.
 
 Additionally, the impact of analysing the full history of representations generated at previous layers rather than only the current layer has not been analysed by the authors of CALM. Out of the three confidence estimation methods, two of them (**softmax response** and **early-exit classifier**) utilise only the latest hidden representation, while **hidden-state saturation** takes the outputs of two most recent layers into consideration. However, it remains to be seen whether utilisation of the full history of generation hidden-states may prove beneficial to the performance of early-exit methods, especially for models consisting of many layers.
 
-![CALM diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/01f461b7-7296-41d5-85c0-84c7dbba7441)
-Figure 3. High-level illustration of softmax reponse/early-exit classifiers
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/70916204/01f461b7-7296-41d5-85c0-84c7dbba7441">
+  <br>
+  <em>Figure 3. High-level illustration of softmax reponse/early-exit classifiers.</em>
+</p>
 
 Lastly, the original method employs a complex calibration procedure for finding an exit threshold $\lambda \in [0, 1]$ such that the early-exit predictions remain consistent with respect to the full model. Furthermore, the provided statistical guarantees are unlikely to generalise. The assumption under which the model operates is that the calibration set $S_{cal}$ is representative of the entire distribution of prompts. This is a strong assumption, and in certain situations, it is unlikely to hold. While this may work for cases where the LLM operates on a constrained dataset (for example, an LLM used only to summarise news articles), it will likely not work for LLMs that are used in e.g. chatbots, where users can input any prompt they want, some of which will be out-of-distribution. The statistical guarantees provided by the CALM paper may therefore provide a false sense of confidence in the outputs. Thus, we aim to compare the speed/accuracy tradeoff of a naively selected threshold (i.e. hyperparameter search) with a calibrated threshold, to determine whether the calibration provides a noticeable benefit.
 
@@ -135,7 +144,10 @@ for decoder_layer in decoder:
   if confidence > threshold:
     output the next token based on probs                                  # use top_k_indices to align K-dimensional logits with the expected output size
 ```
-Pseudocode 1. Comparison between the logic of original softmax response and our variant supplemented with top-k token propagation.
+
+<p align="center">
+  <em>Pseudocode 1. Comparison between the logic of original softmax response and our variant supplemented with top-k token propagation.</em>
+</p>
 
 Although matrix-vector multiplication involving the final linear layer has a time complexity $O(D \times V)$, it should be remembered that this operation can be efficiently parallelised on GPUs; thus, the actual contribution of this operation to the confidence estimation process is likely smaller than it could be expected looking at the time complexity. Beyond a certain point, a further decrease in the matrix size may not even lead to efficiency improvements as the multiplication will not be utilising all of the compute units of the GPU. However, other operations within the **softmax response** method, such as softmax calculation and finding 2 highest probabilities, also depend on the vocabulary size and will benefit from smaller number of logits to consider.
 
@@ -147,8 +159,11 @@ In our work, we also introduce a method of considering the entire history of hid
 
 Moreover, the **attention-based classifier** should usually have a lower inference cost when compared to the most robust method in the original paper, the **softmax response**. This is because the time complexity for the **attention-based classifier** will be $\mathcal{O}(D N^2)$, where $N$ is the sequence length and $D$ is the model dimension. The **softmax response**, on the other hand, has a time complexity of $\mathcal{O}(V D)$, where $V$ is the vocabulary size. Therefore we have that for sufficiently small $N$, the **attention-based classifier** will be faster during inference than the **softmax response**, while also potentially providing more robust confidence estimation.
 
-![CALM transformer diagram](https://github.com/fletchel/DL2-CALM/assets/70916204/f8855382-5565-47e8-bebf-7a9b5bdd6a31)
-Figure 4. High-level illustration of the proposed transformer confidence classifier
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/70916204/f8855382-5565-47e8-bebf-7a9b5bdd6a31">
+  <br>
+  <em>Figure 4. High-level illustration of the proposed transformer confidence classifier.</em>
+</p>
 
 ## Reproduction of the threshold calibration process
 
@@ -202,13 +217,19 @@ We trained each of these for approx. 0.25 epochs each (due to compute constraint
 ## Top-k token propagation 
 First, we compare the performance of the **top-k token propagation** with the original **softmax response** method for different numbers of propagated tokens and confidence thresholds. For both $\lambda = 0.5$ and $\lambda = 0.9$, using only 2000 most probable tokens to compute confidence allowed for an increase in the number of generated tokens per second at a slight cost to the $\text{ROUGE-L}_\text{sum}$ metric. Overall, it is possible to observe the trends we have expected in the **Contribution** section &mdash; the benefits of using our method become more noticeable as greater number of layers needs needs to be traversed to get sufficiently confident prediction
 
-![Results for selected thresholds](https://github.com/fletchel/DL2-CALM/assets/34794757/86eefd2d-cf96-4745-bf13-cfe540633250)
-Table 1. Prediction performance and inference time for full T5-small, CALM and our top-k token propagation extension.
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/34794757/86eefd2d-cf96-4745-bf13-cfe540633250">
+  <br>
+  <em>Table 1. Prediction performance and inference time for full T5-small, CALM and our top-k token propagation extension.</em>
+</p>
 
 Delving deeper into the distribution of time spent on confidence estimation between different layers, we can find proof of why our method performs better for larger average number of decoder layers. As expected, we observe an additional time overhead for the first layer that seems to scale linearly with the value of parameter $K$, while for deeper layers it is possible to obtain up to 40% speedup for confidence computation step for $K$ equal to 2000. The speed benefits get smaller as the number of propagated tokens increased; however, this allows for maintaining metrics closer to the full CALM framework &mdash; for $K=10000$ there is almost no difference in $\text{ROUGE-L}_\text{sum}$ compared to basic CALM with a slight efficiency improvement for $\lambda = 0.9$.
 
-![Average time for confidence estimation per layer](https://github.com/fletchel/DL2-CALM/assets/34794757/b1ce916c-dd0c-4617-866e-2ef667a19c41)
-Figure 5. Average time spent on confidence estimation per layer given different number of propagated tokens.
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/34794757/b1ce916c-dd0c-4617-866e-2ef667a19c41">
+  <br>
+  <em>Figure 5. Average time spent on confidence estimation per layer given different number of propagated tokens.</em>
+</p>
 
 
 ## Comparison of all confidence methods by speed/performance
@@ -220,16 +241,21 @@ In order to compare the confidence methods used, we perform evaluation for each 
   
 Note that softmax (2000) and softmax (10000) refer to the softmax response confidence method with top 2000 token propagation and top 10000 token propagation respectively.
 
-![Figure 6](https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd)
-Figure 6. ROUGE vs. average number of decoder blocks used by confidence method
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/70916204/03f15c36-93db-45f9-ace4-463456a80efd">
+  <br>
+  <em>Figure 6. ROUGE vs. average number of decoder blocks used by confidence method.</em>
+</p>
 
 Figure 6 shows a noticeable difference in performance between the softmax response methods and the classifiers (i.e. linear/MLP/transformers). The softmax response performs substantially better than static exiting (in other words, always exiting at a given layer without use of any confidence metric) as well as all of the confidence classifiers. All softmax response varieties perform similarly well here.
 
 We see our classifiers exhibit approximately the expected pattern in performance (namely that the linear classifier performs worst while the two transformer classifiers perform best). Surprisingly, we find that all of these classifiers compare unfavourably with static exiting. We suspect that this is because our classifiers are substantially undertrained due to compute constraints. We had to train each classifier on only about 25% of the available data (in other words, we trained for approximately 0.25 epochs). In the original paper, the classifiers perform only marginally better than static exiting, so it seems plausible that this undertraining is sufficient to explain the lackluster performance of our classifiers. Nevertheless, we find that our proposed transformer extension performs better than the linear classifier described in the original paper.
 
-![Figure 7](https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c)
-
-Figure 7. Rouge vs. evaluation runtime [Note: Softmax (full) is not in this plot due to time/compute constraints. It will be in the final version.]
+<p align="center">
+  <img src="https://github.com/fletchel/DL2-CALM/assets/70916204/ea6b537f-c2b2-4350-842d-3270cd59ed2c">
+  <br>
+  <em>Figure 7. ROUGE vs. evaluation runtime.</em>
+</p>
 
 In order to more directly compare the time-performance tradeoff between different confidence methods, we plot ROUGE against average eval runtime in Figure 5. Note that these times are quite noisy due to differing cluster loads and generation lengths. However, some patterns are evident.
 
@@ -273,16 +299,16 @@ Figure 11 shows the delta values plotted against the average exit layer for diff
 <p align="center">
   <img src="./plots/calibration/delta_vs_exit_layers_textual.png">
   <br>
-  <em>Figure 12: Plot of the average layer of exit across various confidence measures for varying tolerance values δ, using textual dissimilarity.</em>
+  <em>Figure 11: Plot of the average layer of exit across various confidence measures for varying tolerance values δ, using textual dissimilarity.</em>
 </p>
 
 ### Sample size effects
-We also explored the effect of performing calibration using different sample sizes to assess its effect on early exiting. This can be seen in Figure 13:
+We also explored the effect of performing calibration using different sample sizes to assess its effect on early exiting. This can be seen in Figure 12:
 
 <p align="center">
   <img src="./plots/calibration/delta_exit_layer_samples_sizes_risk.png">
   <br>
-  <em>Figure 13: Average exit layer vs tolerance for different sample sizes.</em>
+  <em>Figure 12: Average exit layer vs tolerance for different sample sizes.</em>
 </p>
 
 We observe for larger samples, the early exiting starts earlier. It is relevant to recall here that our methodology for accepting a confidence threshold depends on a hypothesis test confirmed or rejected by a p-value derived from Hoeffding's inequality. As the sample size increases, the difference between the observed dissimilarities and their expected value decreases given our i.i.d statistical assumptions which translates into us rejecting the null hypothesis for higher confidence thresholds. This is what we observe i.e. higher samples mean we start early exiting earlier. This is quite natural: given only a few samples, one cannot confidently accept the empirically observed dissimilarities as representative. 
@@ -297,9 +323,12 @@ For the calibration process, we would consider the following trade-off: we want 
 
 The results of this comparison can be seen in Table 2. Risk $\delta$ signifies the risk delta that was chosen from Figure 8, which was always the highest $\delta$ that satisfied $R_{\text{early}} - R_{\text{full}} < 0.1$. $\lambda$ signifies the threshold: the $\lambda_\text{min}$ in Risk $\delta / \lambda_\text{min}$ is thus the threshold that corresponds to the given risk delta. $\lambda_{0.9}$ is the smallest threshold that achieves a ROUGE score above 90% of the full model's ROUGE score. $\lambda_{0.95}$ is the smallest threshold that achieves a ROUGE score above 95% of the full model's ROUGE score.
 
-![img_1.png](img_1.png)
 
-Table 2. Comparison of naive hyperparameter search with calibration process. 
+<p align="center">
+  <img src="plots\img_1.png">
+  <br>
+  <em>Table 2. Comparison of naive hyperparameter search with calibration process. </em>
+</p>
 
 We note that the results of the calibration process and the results of a naive hyperparameter search are very similar in every case except one: the transformer. For the transformer, we see that the calibration process provides some benefit over the naive hyperparameter search as using the threshold value determined (0.6) results in a model that runs in 7:35 minutes, whereas using the threshold value determined using naive hyperparameter search results in a model that runs in 12:28 minutes.
 
